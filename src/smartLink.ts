@@ -1,7 +1,9 @@
-import { TFile } from 'obsidian'
-
 export interface SmartLinkSettings {
   caseSensitive: boolean
+}
+
+export interface FileInfo {
+  basename: string
 }
 
 export class SmartLinkCore {
@@ -136,7 +138,7 @@ export class SmartLinkCore {
     return expandedResults.length > 0 ? expandedResults : null
   }
 
-  findBestMatch(text: string, files: TFile[]): string | null {
+  findBestMatch(text: string, files: FileInfo[]): string | null {
     const fileNames = files.map((f) => f.basename)
     const searchText = this.settings.caseSensitive ? text : text.toLowerCase()
 
@@ -152,6 +154,7 @@ export class SmartLinkCore {
 
       // 1. Check if the file name appears anywhere in the search text
       const matchIndex = searchText.indexOf(compareFileName)
+
       if (matchIndex !== -1) {
         const matchLength = compareFileName.length
 
@@ -168,7 +171,9 @@ export class SmartLinkCore {
       }
 
       // 2. Check if the search text starts with the file name (partial match)
-      if (compareFileName.startsWith(searchText)) {
+      const startsWithSearchText = compareFileName.startsWith(searchText)
+
+      if (startsWithSearchText) {
         const matchLength = searchText.length
 
         const isBetterMatch =
@@ -184,7 +189,9 @@ export class SmartLinkCore {
       }
 
       // 3. Check if the file name starts with the search text (partial match)
-      if (searchText.startsWith(compareFileName)) {
+      const searchTextStartsWithFile = searchText.startsWith(compareFileName)
+
+      if (searchTextStartsWithFile) {
         const matchLength = compareFileName.length
 
         const isBetterMatch =
@@ -200,7 +207,11 @@ export class SmartLinkCore {
       }
 
       // 4. If no exact match, try fuzzy match
-      if (!this.settings.caseSensitive && this.fuzzyMatch(compareFileName, searchText)) {
+      const fuzzyMatchResult = !this.settings.caseSensitive
+        ? this.fuzzyMatch(compareFileName, searchText)
+        : false
+
+      if (fuzzyMatchResult) {
         const matchLength = Math.min(compareFileName.length, searchText.length)
 
         if (matchLength > bestMatchLength) {
@@ -217,7 +228,6 @@ export class SmartLinkCore {
   private fuzzyMatch(fileName: string, searchText: string): boolean {
     const normalizedFileName = this.normalizeText(fileName)
     const normalizedSearch = this.normalizeText(searchText)
-
     return normalizedFileName === normalizedSearch
   }
 
@@ -238,7 +248,24 @@ export class SmartLinkCore {
     const matchIndex = searchText.indexOf(compareFileName)
     if (matchIndex !== -1) {
       const beforeMatch = originalText.substring(0, matchIndex)
-      const afterMatch = originalText.substring(matchIndex + compareFileName.length)
+      let afterMatch = originalText.substring(matchIndex + compareFileName.length)
+
+      // Universal agglutinative suffix handling
+      // Keep suffixes that are short and look like grammatical elements
+      if (afterMatch.length > 0) {
+        // Look for space + short word (like " was") OR short suffix without space
+        const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+        const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+        if (spaceAndWordMatch) {
+          afterMatch = spaceAndWordMatch[1]
+        } else if (shortSuffixMatch) {
+          afterMatch = shortSuffixMatch[1]
+        } else {
+          afterMatch = ''
+        }
+      }
+
       return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -252,7 +279,24 @@ export class SmartLinkCore {
     // 3. Check if file name starts with search text (file name is shorter)
     if (searchText.startsWith(compareFileName)) {
       // The file name matches the beginning of the search text
-      const afterMatch = originalText.substring(compareFileName.length)
+      let afterMatch = originalText.substring(compareFileName.length)
+
+      // Universal agglutinative suffix handling
+      // Keep suffixes that are short and look like grammatical elements
+      if (afterMatch.length > 0) {
+        // Look for space + short word (like " was") OR short suffix without space
+        const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+        const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+        if (spaceAndWordMatch) {
+          afterMatch = spaceAndWordMatch[1]
+        } else if (shortSuffixMatch) {
+          afterMatch = shortSuffixMatch[1]
+        } else {
+          afterMatch = ''
+        }
+      }
+
       return `[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -262,7 +306,24 @@ export class SmartLinkCore {
         const substring = searchText.substring(startPos, endPos)
         if (this.fuzzyMatch(compareFileName, substring)) {
           const beforeMatch = originalText.substring(0, startPos)
-          const afterMatch = originalText.substring(endPos)
+          let afterMatch = originalText.substring(endPos)
+
+          // Universal agglutinative suffix handling
+          // Keep suffixes that are short and look like grammatical elements
+          if (afterMatch.length > 0) {
+            // Look for space + short word (like " was") OR short suffix without space
+            const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+            const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+            if (spaceAndWordMatch) {
+              afterMatch = spaceAndWordMatch[1]
+            } else if (shortSuffixMatch) {
+              afterMatch = shortSuffixMatch[1]
+            } else {
+              afterMatch = ''
+            }
+          }
+
           return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
         }
       }
@@ -275,7 +336,7 @@ export class SmartLinkCore {
   processSmartLink(
     line: string,
     cursorPos: number,
-    files: TFile[]
+    files: FileInfo[]
   ): { result: string; start: number; end: number } | null {
     const expandedSelections = this.getExpandedSelections(line, cursorPos)
     if (!expandedSelections || expandedSelections.length === 0) {
@@ -327,10 +388,32 @@ export class SmartLinkCore {
 
     const linkText = this.createLinkText(bestSelection.text, bestMatch)
 
+    // Calculate the actual end position based on the generated link text
+    // This accounts for Korean particles that may have been trimmed
+    let actualEnd = bestSelection.start + linkText.length
+
+    // If linkText contains the wikilink syntax, we need to calculate differently
+    const linkMatch = linkText.match(/^(.*?)\[\[.*?\]\](.*)$/)
+    if (linkMatch) {
+      const beforeLink = linkMatch[1]
+      const afterLink = linkMatch[2]
+      const matchLower = this.settings.caseSensitive ? bestMatch : bestMatch.toLowerCase()
+
+      // Find where the match ends in the original line
+      const searchText = this.settings.caseSensitive
+        ? line.substring(bestSelection.start, bestSelection.end)
+        : line.substring(bestSelection.start, bestSelection.end).toLowerCase()
+
+      const matchIndex = searchText.indexOf(matchLower)
+      if (matchIndex !== -1) {
+        actualEnd = bestSelection.start + beforeLink.length + matchLower.length + afterLink.length
+      }
+    }
+
     return {
       result: linkText,
       start: bestSelection.start,
-      end: bestSelection.end,
+      end: actualEnd,
     }
   }
 }

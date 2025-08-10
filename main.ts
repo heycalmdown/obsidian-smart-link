@@ -1,5 +1,5 @@
-import { Editor, MarkdownView, MarkdownFileInfo, Plugin } from 'obsidian'
-import { SmartLinkCore, SmartLinkSettings } from './src/smartLink'
+import { Editor, MarkdownView, MarkdownFileInfo, Plugin, TFile } from 'obsidian'
+import { SmartLinkCore, SmartLinkSettings, FileInfo } from './src/smartLink'
 
 const DEFAULT_SETTINGS: SmartLinkSettings = {
   caseSensitive: false,
@@ -19,12 +19,6 @@ export default class SmartLinkPlugin extends Plugin {
       editorCallback: (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
         this.createSmartLink(editor)
       },
-      hotkeys: [
-        {
-          modifiers: ['Mod', 'Shift'],
-          key: 'k',
-        },
-      ],
     })
   }
 
@@ -41,9 +35,52 @@ export default class SmartLinkPlugin extends Plugin {
   private createSmartLink(editor: Editor) {
     const cursor = editor.getCursor()
     const line = editor.getLine(cursor.line)
-    const allFiles = this.app.vault.getMarkdownFiles()
 
-    const result = this.smartLinkCore.processSmartLink(line, cursor.ch, allFiles)
+    // Get existing files
+    const allFiles = this.app.vault.getMarkdownFiles()
+    const existingFiles: FileInfo[] = allFiles.map((file: TFile) => ({
+      basename: file.basename,
+    }))
+
+    // Get all link references (including non-existent files)
+    const allLinkNames = new Set<string>()
+
+    // Add existing files
+    existingFiles.forEach((file) => allLinkNames.add(file.basename))
+
+    // Get unresolved links (links that don't have corresponding files)
+    const unresolvedLinks = this.app.metadataCache.unresolvedLinks
+
+    // Extract link names from unresolved links
+    Object.values(unresolvedLinks).forEach((linkMap) => {
+      Object.keys(linkMap).forEach((linkName) => {
+        // Remove .md extension and path if present
+        const basename = linkName.replace(/\.md$/, '').split('/').pop()
+        if (basename) {
+          allLinkNames.add(basename)
+        }
+      })
+    })
+
+    // Also check resolved links to catch any we might have missed
+    const resolvedLinks = this.app.metadataCache.resolvedLinks
+
+    Object.values(resolvedLinks).forEach((linkMap) => {
+      Object.keys(linkMap).forEach((linkName) => {
+        const basename = linkName.replace(/\.md$/, '').split('/').pop()
+        if (basename) {
+          allLinkNames.add(basename)
+        }
+      })
+    })
+
+    // Convert to FileInfo array
+    const fileInfos: FileInfo[] = Array.from(allLinkNames).map((name) => ({
+      basename: name,
+    }))
+
+    const result = this.smartLinkCore.processSmartLink(line, cursor.ch, fileInfos)
+
     if (!result) {
       return
     }
