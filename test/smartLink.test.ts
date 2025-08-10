@@ -72,9 +72,9 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const result = smartLink.processSmartLink(line, cursorPos, files)
 
       expect(result).not.toBeNull()
-      expect(result?.result).toBe('[[2022 FIFA World Cup]] was held in')
+      expect(result?.result).toBe('[[2022 FIFA World Cup]] was')
       expect(result?.start).toBe(4)
-      expect(result?.end).toBe(35)
+      expect(result?.end).toBe(27)
     })
 
     test("Should prefer '생성형 인공지능' over '인공지능'", () => {
@@ -113,9 +113,9 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const result = smartLink.processSmartLink(line, cursorPos, files)
 
       expect(result).not.toBeNull()
-      expect(result?.result).toBe('[[Project Management]] skills')
+      expect(result?.result).toBe('[[Project Management]]')
       expect(result?.start).toBe(21)
-      expect(result?.end).toBe(46)
+      expect(result?.end).toBe(39)
     })
 
     test('Should handle text with existing brackets', () => {
@@ -224,8 +224,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const cursorPos = 9 // cursor on "code"
 
       const result = smartLink.processSmartLink(line, cursorPos, files)
-      
-      // When cursor is on "code", it should find "Claude Code" 
+      // When cursor is on "code", it should find "Claude Code"
       // and only replace "claude code", not including "가 좋다"
       expect(result).not.toBeNull()
       expect(result?.result).toBe('[[Claude Code]]가')

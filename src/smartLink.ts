@@ -154,6 +154,7 @@ export class SmartLinkCore {
 
       // 1. Check if the file name appears anywhere in the search text
       const matchIndex = searchText.indexOf(compareFileName)
+
       if (matchIndex !== -1) {
         const matchLength = compareFileName.length
 
@@ -170,7 +171,9 @@ export class SmartLinkCore {
       }
 
       // 2. Check if the search text starts with the file name (partial match)
-      if (compareFileName.startsWith(searchText)) {
+      const startsWithSearchText = compareFileName.startsWith(searchText)
+
+      if (startsWithSearchText) {
         const matchLength = searchText.length
 
         const isBetterMatch =
@@ -186,7 +189,9 @@ export class SmartLinkCore {
       }
 
       // 3. Check if the file name starts with the search text (partial match)
-      if (searchText.startsWith(compareFileName)) {
+      const searchTextStartsWithFile = searchText.startsWith(compareFileName)
+
+      if (searchTextStartsWithFile) {
         const matchLength = compareFileName.length
 
         const isBetterMatch =
@@ -202,7 +207,11 @@ export class SmartLinkCore {
       }
 
       // 4. If no exact match, try fuzzy match
-      if (!this.settings.caseSensitive && this.fuzzyMatch(compareFileName, searchText)) {
+      const fuzzyMatchResult = !this.settings.caseSensitive
+        ? this.fuzzyMatch(compareFileName, searchText)
+        : false
+
+      if (fuzzyMatchResult) {
         const matchLength = Math.min(compareFileName.length, searchText.length)
 
         if (matchLength > bestMatchLength) {
@@ -219,7 +228,6 @@ export class SmartLinkCore {
   private fuzzyMatch(fileName: string, searchText: string): boolean {
     const normalizedFileName = this.normalizeText(fileName)
     const normalizedSearch = this.normalizeText(searchText)
-
     return normalizedFileName === normalizedSearch
   }
 
@@ -241,34 +249,23 @@ export class SmartLinkCore {
     if (matchIndex !== -1) {
       const beforeMatch = originalText.substring(0, matchIndex)
       let afterMatch = originalText.substring(matchIndex + compareFileName.length)
-      
-      // Special handling for Korean particles
-      // Common Korean particles to preserve
-      const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
-      
+
+      // Universal agglutinative suffix handling
+      // Keep suffixes that are short and look like grammatical elements
       if (afterMatch.length > 0) {
-        // Check if afterMatch starts with a known Korean particle
-        let foundParticle = ''
-        for (const particle of koreanParticles) {
-          if (afterMatch.startsWith(particle)) {
-            // Check if what follows the particle is a space or end of text
-            const afterParticle = afterMatch.substring(particle.length)
-            if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
-              foundParticle = particle
-              break
-            }
-          }
-        }
-        
-        if (foundParticle) {
-          afterMatch = foundParticle
-        } else if (/^[가-힣]/.test(afterMatch)) {
-          // If it's Korean text but not a particle, don't include it
+        // Look for space + short word (like " was") OR short suffix without space
+        const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+        const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+        if (spaceAndWordMatch) {
+          afterMatch = spaceAndWordMatch[1]
+        } else if (shortSuffixMatch) {
+          afterMatch = shortSuffixMatch[1]
+        } else {
           afterMatch = ''
         }
-        // For non-Korean text, keep it as is
       }
-      
+
       return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -283,29 +280,23 @@ export class SmartLinkCore {
     if (searchText.startsWith(compareFileName)) {
       // The file name matches the beginning of the search text
       let afterMatch = originalText.substring(compareFileName.length)
-      
-      // Special handling for Korean particles
-      const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
-      
+
+      // Universal agglutinative suffix handling
+      // Keep suffixes that are short and look like grammatical elements
       if (afterMatch.length > 0) {
-        let foundParticle = ''
-        for (const particle of koreanParticles) {
-          if (afterMatch.startsWith(particle)) {
-            const afterParticle = afterMatch.substring(particle.length)
-            if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
-              foundParticle = particle
-              break
-            }
-          }
-        }
-        
-        if (foundParticle) {
-          afterMatch = foundParticle
-        } else if (/^[가-힣]/.test(afterMatch)) {
+        // Look for space + short word (like " was") OR short suffix without space
+        const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+        const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+        if (spaceAndWordMatch) {
+          afterMatch = spaceAndWordMatch[1]
+        } else if (shortSuffixMatch) {
+          afterMatch = shortSuffixMatch[1]
+        } else {
           afterMatch = ''
         }
       }
-      
+
       return `[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -316,29 +307,23 @@ export class SmartLinkCore {
         if (this.fuzzyMatch(compareFileName, substring)) {
           const beforeMatch = originalText.substring(0, startPos)
           let afterMatch = originalText.substring(endPos)
-          
-          // Special handling for Korean particles
-          const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
-          
+
+          // Universal agglutinative suffix handling
+          // Keep suffixes that are short and look like grammatical elements
           if (afterMatch.length > 0) {
-            let foundParticle = ''
-            for (const particle of koreanParticles) {
-              if (afterMatch.startsWith(particle)) {
-                const afterParticle = afterMatch.substring(particle.length)
-                if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
-                  foundParticle = particle
-                  break
-                }
-              }
-            }
-            
-            if (foundParticle) {
-              afterMatch = foundParticle
-            } else if (/^[가-힣]/.test(afterMatch)) {
+            // Look for space + short word (like " was") OR short suffix without space
+            const spaceAndWordMatch = afterMatch.match(/^(\s+\w{1,3})(?=\s|$)/)
+            const shortSuffixMatch = afterMatch.match(/^([^\s]{1,3})(?=\s|$)/)
+
+            if (spaceAndWordMatch) {
+              afterMatch = spaceAndWordMatch[1]
+            } else if (shortSuffixMatch) {
+              afterMatch = shortSuffixMatch[1]
+            } else {
               afterMatch = ''
             }
           }
-          
+
           return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
         }
       }
@@ -402,23 +387,23 @@ export class SmartLinkCore {
     }
 
     const linkText = this.createLinkText(bestSelection.text, bestMatch)
-    
+
     // Calculate the actual end position based on the generated link text
     // This accounts for Korean particles that may have been trimmed
     let actualEnd = bestSelection.start + linkText.length
-    
+
     // If linkText contains the wikilink syntax, we need to calculate differently
     const linkMatch = linkText.match(/^(.*?)\[\[.*?\]\](.*)$/)
     if (linkMatch) {
       const beforeLink = linkMatch[1]
       const afterLink = linkMatch[2]
       const matchLower = this.settings.caseSensitive ? bestMatch : bestMatch.toLowerCase()
-      
+
       // Find where the match ends in the original line
-      const searchText = this.settings.caseSensitive 
+      const searchText = this.settings.caseSensitive
         ? line.substring(bestSelection.start, bestSelection.end)
         : line.substring(bestSelection.start, bestSelection.end).toLowerCase()
-      
+
       const matchIndex = searchText.indexOf(matchLower)
       if (matchIndex !== -1) {
         actualEnd = bestSelection.start + beforeLink.length + matchLower.length + afterLink.length
