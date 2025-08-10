@@ -85,9 +85,9 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const result = smartLink.processSmartLink(line, cursorPos, files)
 
       expect(result).not.toBeNull()
-      expect(result?.result).toBe('[[생성형 인공지능]]이 화제다')
+      expect(result?.result).toBe('[[생성형 인공지능]]이')
       expect(result?.start).toBe(0)
-      expect(result?.end).toBe(13)
+      expect(result?.end).toBe(9)
     })
 
     test("Should prefer '2002 월드컵' over '월드컵'", () => {
@@ -98,9 +98,9 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const result = smartLink.processSmartLink(line, cursorPos, files)
 
       expect(result).not.toBeNull()
-      expect(result?.result).toBe('[[2002 월드컵]]에서 대한민국은')
+      expect(result?.result).toBe('[[2002 월드컵]]에서')
       expect(result?.start).toBe(0)
-      expect(result?.end).toBe(16)
+      expect(result?.end).toBe(10)
     })
   })
 
@@ -205,6 +205,34 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       expect(result?.end).toBe(12)
     })
 
+    test('Bug: Should prefer "Claude Code" over "Claude.ai" when cursor on "claude" in "claude code가"', () => {
+      files = [{ basename: 'Claude.ai' }, { basename: 'Claude Code' }]
+      const line = 'claude code가 좋다'
+      const cursorPos = 3 // cursor on "claude"
+
+      const result = smartLink.processSmartLink(line, cursorPos, files)
+
+      expect(result).not.toBeNull()
+      expect(result?.result).toBe('[[Claude Code]]가')
+      expect(result?.start).toBe(0)
+      expect(result?.end).toBe(12)
+    })
+
+    test('Bug: Should match "Claude Code" when cursor on "code" in "claude code가"', () => {
+      files = [{ basename: 'Claude.ai' }, { basename: 'Claude Code' }]
+      const line = 'claude code가 좋다'
+      const cursorPos = 9 // cursor on "code"
+
+      const result = smartLink.processSmartLink(line, cursorPos, files)
+      
+      // When cursor is on "code", it should find "Claude Code" 
+      // and only replace "claude code", not including "가 좋다"
+      expect(result).not.toBeNull()
+      expect(result?.result).toBe('[[Claude Code]]가')
+      expect(result?.start).toBe(0)
+      expect(result?.end).toBe(12)
+    })
+
     test('Should match case-sensitively when enabled', () => {
       smartLink = new SmartLinkCore({ caseSensitive: true })
       files = [{ basename: 'JavaScript' }]
@@ -251,9 +279,9 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
       const result = smartLink.processSmartLink(line, cursorPos, files)
 
       expect(result).not.toBeNull()
-      expect(result?.result).toBe('[[대한민국 서울특별시]]에 살고')
+      expect(result?.result).toBe('[[대한민국 서울특별시]]에')
       expect(result?.start).toBe(0)
-      expect(result?.end).toBe(14)
+      expect(result?.end).toBe(11)
     })
   })
 })

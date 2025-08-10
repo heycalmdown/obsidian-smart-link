@@ -240,7 +240,35 @@ export class SmartLinkCore {
     const matchIndex = searchText.indexOf(compareFileName)
     if (matchIndex !== -1) {
       const beforeMatch = originalText.substring(0, matchIndex)
-      const afterMatch = originalText.substring(matchIndex + compareFileName.length)
+      let afterMatch = originalText.substring(matchIndex + compareFileName.length)
+      
+      // Special handling for Korean particles
+      // Common Korean particles to preserve
+      const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
+      
+      if (afterMatch.length > 0) {
+        // Check if afterMatch starts with a known Korean particle
+        let foundParticle = ''
+        for (const particle of koreanParticles) {
+          if (afterMatch.startsWith(particle)) {
+            // Check if what follows the particle is a space or end of text
+            const afterParticle = afterMatch.substring(particle.length)
+            if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
+              foundParticle = particle
+              break
+            }
+          }
+        }
+        
+        if (foundParticle) {
+          afterMatch = foundParticle
+        } else if (/^[가-힣]/.test(afterMatch)) {
+          // If it's Korean text but not a particle, don't include it
+          afterMatch = ''
+        }
+        // For non-Korean text, keep it as is
+      }
+      
       return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -254,7 +282,30 @@ export class SmartLinkCore {
     // 3. Check if file name starts with search text (file name is shorter)
     if (searchText.startsWith(compareFileName)) {
       // The file name matches the beginning of the search text
-      const afterMatch = originalText.substring(compareFileName.length)
+      let afterMatch = originalText.substring(compareFileName.length)
+      
+      // Special handling for Korean particles
+      const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
+      
+      if (afterMatch.length > 0) {
+        let foundParticle = ''
+        for (const particle of koreanParticles) {
+          if (afterMatch.startsWith(particle)) {
+            const afterParticle = afterMatch.substring(particle.length)
+            if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
+              foundParticle = particle
+              break
+            }
+          }
+        }
+        
+        if (foundParticle) {
+          afterMatch = foundParticle
+        } else if (/^[가-힣]/.test(afterMatch)) {
+          afterMatch = ''
+        }
+      }
+      
       return `[[${matchedFileName}]]${afterMatch}`
     }
 
@@ -264,7 +315,30 @@ export class SmartLinkCore {
         const substring = searchText.substring(startPos, endPos)
         if (this.fuzzyMatch(compareFileName, substring)) {
           const beforeMatch = originalText.substring(0, startPos)
-          const afterMatch = originalText.substring(endPos)
+          let afterMatch = originalText.substring(endPos)
+          
+          // Special handling for Korean particles
+          const koreanParticles = ['가', '이', '을', '를', '의', '에', '에서', '에게', '한테', '와', '과', '로', '으로', '는', '은', '도', '만', '까지', '부터', '마저', '조차', '라도', '이나', '나', '든지', '든가', '이든', '든']
+          
+          if (afterMatch.length > 0) {
+            let foundParticle = ''
+            for (const particle of koreanParticles) {
+              if (afterMatch.startsWith(particle)) {
+                const afterParticle = afterMatch.substring(particle.length)
+                if (afterParticle.length === 0 || /^\s/.test(afterParticle)) {
+                  foundParticle = particle
+                  break
+                }
+              }
+            }
+            
+            if (foundParticle) {
+              afterMatch = foundParticle
+            } else if (/^[가-힣]/.test(afterMatch)) {
+              afterMatch = ''
+            }
+          }
+          
           return `${beforeMatch}[[${matchedFileName}]]${afterMatch}`
         }
       }
@@ -328,11 +402,33 @@ export class SmartLinkCore {
     }
 
     const linkText = this.createLinkText(bestSelection.text, bestMatch)
+    
+    // Calculate the actual end position based on the generated link text
+    // This accounts for Korean particles that may have been trimmed
+    let actualEnd = bestSelection.start + linkText.length
+    
+    // If linkText contains the wikilink syntax, we need to calculate differently
+    const linkMatch = linkText.match(/^(.*?)\[\[.*?\]\](.*)$/)
+    if (linkMatch) {
+      const beforeLink = linkMatch[1]
+      const afterLink = linkMatch[2]
+      const matchLower = this.settings.caseSensitive ? bestMatch : bestMatch.toLowerCase()
+      
+      // Find where the match ends in the original line
+      const searchText = this.settings.caseSensitive 
+        ? line.substring(bestSelection.start, bestSelection.end)
+        : line.substring(bestSelection.start, bestSelection.end).toLowerCase()
+      
+      const matchIndex = searchText.indexOf(matchLower)
+      if (matchIndex !== -1) {
+        actualEnd = bestSelection.start + beforeLink.length + matchLower.length + afterLink.length
+      }
+    }
 
     return {
       result: linkText,
       start: bestSelection.start,
-      end: bestSelection.end,
+      end: actualEnd,
     }
   }
 }
