@@ -396,4 +396,69 @@ export class SmartLinkCore {
       end: bestSelection.end,
     }
   }
+
+  processAllSmartLinks(line: string, files: FileInfo[]): string {
+    // Keep track of already processed regions to avoid overlapping replacements
+    const processedRegions: Array<{ start: number; end: number; replacement: string }> = []
+
+    // Process the line from left to right
+    let position = 0
+    while (position < line.length) {
+      // Skip if we're inside an existing link
+      if (line.substring(position, position + 2) === '[[') {
+        const endLink = line.indexOf(']]', position)
+        if (endLink !== -1) {
+          position = endLink + 2
+          continue
+        }
+      }
+
+      // Skip whitespace
+      if (/\s/.test(line[position])) {
+        position++
+        continue
+      }
+
+      // Try to create a smart link at this position
+      const result = this.processSmartLink(line, position, files)
+
+      if (result) {
+        // Check if this region overlaps with any already processed region
+        const overlaps = processedRegions.some(
+          (region) =>
+            (result.start >= region.start && result.start < region.end) ||
+            (result.end > region.start && result.end <= region.end) ||
+            (result.start <= region.start && result.end >= region.end)
+        )
+
+        if (!overlaps) {
+          processedRegions.push({
+            start: result.start,
+            end: result.end,
+            replacement: result.result,
+          })
+          // Move position to after the processed region
+          position = result.end
+        } else {
+          position++
+        }
+      } else {
+        position++
+      }
+    }
+
+    // Sort regions by start position (descending) to process from end to start
+    processedRegions.sort((a, b) => b.start - a.start)
+
+    // Apply replacements from end to start to maintain positions
+    let resultLine = line
+    for (const region of processedRegions) {
+      resultLine =
+        resultLine.substring(0, region.start) +
+        region.replacement +
+        resultLine.substring(region.end)
+    }
+
+    return resultLine
+  }
 }
