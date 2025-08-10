@@ -388,32 +388,12 @@ export class SmartLinkCore {
 
     const linkText = this.createLinkText(bestSelection.text, bestMatch)
 
-    // Calculate the actual end position based on the generated link text
-    // This accounts for Korean particles that may have been trimmed
-    let actualEnd = bestSelection.start + linkText.length
-
-    // If linkText contains the wikilink syntax, we need to calculate differently
-    const linkMatch = linkText.match(/^(.*?)\[\[.*?\]\](.*)$/)
-    if (linkMatch) {
-      const beforeLink = linkMatch[1]
-      const afterLink = linkMatch[2]
-      const matchLower = this.settings.caseSensitive ? bestMatch : bestMatch.toLowerCase()
-
-      // Find where the match ends in the original line
-      const searchText = this.settings.caseSensitive
-        ? line.substring(bestSelection.start, bestSelection.end)
-        : line.substring(bestSelection.start, bestSelection.end).toLowerCase()
-
-      const matchIndex = searchText.indexOf(matchLower)
-      if (matchIndex !== -1) {
-        actualEnd = bestSelection.start + beforeLink.length + matchLower.length + afterLink.length
-      }
-    }
-
+    // Use the original selection end position to ensure we only replace
+    // text within the bounds of what was selected, not beyond
     return {
       result: linkText,
       start: bestSelection.start,
-      end: actualEnd,
+      end: bestSelection.end,
     }
   }
 }
