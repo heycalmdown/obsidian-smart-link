@@ -1,0 +1,27 @@
+# npm
+node_modules/
+package-lock.json
+
+# Build output
+main.js
+main.js.map
+*.js.map
+
+# Obsidian
+data.json
+
+# IDE
+.vscode/launch.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Test coverage
+coverage/
+*.lcov

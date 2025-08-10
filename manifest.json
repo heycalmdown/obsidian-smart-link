@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-smart-link",
+  "name": "Smart Link",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "Intelligently create wiki-style links with automatic context detection",
+  "author": "Your Name",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
