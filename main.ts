@@ -1,5 +1,5 @@
-import { Editor, MarkdownView, MarkdownFileInfo, Plugin } from 'obsidian'
-import { SmartLinkCore, SmartLinkSettings } from './src/smartLink'
+import { Editor, MarkdownView, MarkdownFileInfo, Plugin, TFile } from 'obsidian'
+import { SmartLinkCore, SmartLinkSettings, FileInfo } from './src/smartLink'
 
 const DEFAULT_SETTINGS: SmartLinkSettings = {
   caseSensitive: false,
@@ -19,12 +19,6 @@ export default class SmartLinkPlugin extends Plugin {
       editorCallback: (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
         this.createSmartLink(editor)
       },
-      hotkeys: [
-        {
-          modifiers: ['Mod', 'Shift'],
-          key: 'k',
-        },
-      ],
     })
   }
 
@@ -42,8 +36,11 @@ export default class SmartLinkPlugin extends Plugin {
     const cursor = editor.getCursor()
     const line = editor.getLine(cursor.line)
     const allFiles = this.app.vault.getMarkdownFiles()
+    const fileInfos: FileInfo[] = allFiles.map((file: TFile) => ({
+      basename: file.basename
+    }))
 
-    const result = this.smartLinkCore.processSmartLink(line, cursor.ch, allFiles)
+    const result = this.smartLinkCore.processSmartLink(line, cursor.ch, fileInfos)
     if (!result) {
       return
     }

@@ -1,9 +1,8 @@
-import { SmartLinkCore } from '../src/smartLink'
-import { TFile } from './mocks/obsidian'
+import { SmartLinkCore, FileInfo } from '../src/smartLink'
 
 describe('SmartLink Korean Agglutinative Language Tests', () => {
   let smartLink: SmartLinkCore
-  let files: TFile[]
+  let files: FileInfo[]
 
   beforeEach(() => {
     smartLink = new SmartLinkCore({ caseSensitive: false })
@@ -12,7 +11,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('Korean particle handling', () => {
     test('쌀떡이를 -> [[쌀떡이]]를', () => {
-      files = [new TFile('쌀떡이')]
+      files = [{ basename: '쌀떡이' }]
       const line = '쌀떡이를 먹었다'
       const cursorPos = 3 // cursor on "쌀떡이를"
 
@@ -25,7 +24,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('서울특별시에서 -> [[서울특별시]]에서', () => {
-      files = [new TFile('서울특별시')]
+      files = [{ basename: '서울특별시' }]
       const line = '서울특별시에서 만났다'
       const cursorPos = 5 // cursor on "서울특별시에서"
 
@@ -38,7 +37,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('대한민국의 -> [[대한민국]]의', () => {
-      files = [new TFile('대한민국')]
+      files = [{ basename: '대한민국' }]
       const line = '대한민국의 수도는 서울이다'
       const cursorPos = 3 // cursor on "대한민국의"
 
@@ -51,7 +50,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('인공지능이 -> [[인공지능]]이', () => {
-      files = [new TFile('인공지능')]
+      files = [{ basename: '인공지능' }]
       const line = '인공지능이 발전하고 있다'
       const cursorPos = 3 // cursor on "인공지능이"
 
@@ -66,7 +65,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('Longer match priority', () => {
     test("Should prefer '2022 FIFA World Cup' over 'World Cup'", () => {
-      files = [new TFile('World Cup'), new TFile('2022 FIFA World Cup')]
+      files = [{ basename: 'World Cup' }, { basename: '2022 FIFA World Cup' }]
       const line = 'The 2022 FIFA World Cup was held in Qatar'
       const cursorPos = 20 // cursor on "World Cup"
 
@@ -79,7 +78,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test("Should prefer '생성형 인공지능' over '인공지능'", () => {
-      files = [new TFile('인공지능'), new TFile('생성형 인공지능')]
+      files = [{ basename: '인공지능' }, { basename: '생성형 인공지능' }]
       const line = '생성형 인공지능이 화제다'
       const cursorPos = 6 // cursor on "인공지능"
 
@@ -92,7 +91,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test("Should prefer '2002 월드컵' over '월드컵'", () => {
-      files = [new TFile('월드컵'), new TFile('2002 월드컵')]
+      files = [{ basename: '월드컵' }, { basename: '2002 월드컵' }]
       const line = '2002 월드컵에서 대한민국은'
       const cursorPos = 7 // cursor on "월드컵"
 
@@ -107,7 +106,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('English examples', () => {
     test('project management -> [[Project Management]]', () => {
-      files = [new TFile('Project Management')]
+      files = [{ basename: 'Project Management' }]
       const line = 'I need to improve my project management skills'
       const cursorPos = 30 // cursor on "project management"
 
@@ -120,7 +119,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should handle text with existing brackets', () => {
-      files = [new TFile('React')]
+      files = [{ basename: 'React' }]
       const line = 'I love [React] framework'
       const cursorPos = 10 // cursor on "React"
 
@@ -135,7 +134,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('Edge cases', () => {
     test('Should return null when no files match', () => {
-      files = [new TFile('JavaScript')]
+      files = [{ basename: 'JavaScript' }]
       const line = 'I love Python'
       const cursorPos = 10
 
@@ -145,7 +144,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should return null for empty line', () => {
-      files = [new TFile('Test')]
+      files = [{ basename: 'Test' }]
       const line = ''
       const cursorPos = 0
 
@@ -155,7 +154,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should handle cursor at line start', () => {
-      files = [new TFile('Hello')]
+      files = [{ basename: 'Hello' }]
       const line = 'Hello world'
       const cursorPos = 0
 
@@ -168,7 +167,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should handle cursor at line end', () => {
-      files = [new TFile('world')]
+      files = [{ basename: 'world' }]
       const line = 'Hello world'
       const cursorPos = 11
 
@@ -183,7 +182,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('Case sensitivity', () => {
     test('Should match case-insensitively by default', () => {
-      files = [new TFile('JavaScript')]
+      files = [{ basename: 'JavaScript' }]
       const line = 'I love javascript'
       const cursorPos = 10
 
@@ -194,7 +193,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should match "Claude Code" when text is "claude code가"', () => {
-      files = [new TFile('Claude Code')]
+      files = [{ basename: 'Claude Code' }]
       const line = 'claude code가 좋다'
       const cursorPos = 5 // cursor on "code"
 
@@ -208,7 +207,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
     test('Should match case-sensitively when enabled', () => {
       smartLink = new SmartLinkCore({ caseSensitive: true })
-      files = [new TFile('JavaScript')]
+      files = [{ basename: 'JavaScript' }]
       const line = 'I love javascript'
       const cursorPos = 10
 
@@ -219,7 +218,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
     test('Should match exact case when case-sensitive', () => {
       smartLink = new SmartLinkCore({ caseSensitive: true })
-      files = [new TFile('JavaScript')]
+      files = [{ basename: 'JavaScript' }]
       const line = 'I love JavaScript'
       const cursorPos = 10
 
@@ -232,7 +231,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
 
   describe('Multiple word matching', () => {
     test('Should match multiple words', () => {
-      files = [new TFile('Visual Studio Code')]
+      files = [{ basename: 'Visual Studio Code' }]
       const line = 'I use Visual Studio Code for development'
       const cursorPos = 15 // cursor on "Studio"
 
@@ -245,7 +244,7 @@ describe('SmartLink Korean Agglutinative Language Tests', () => {
     })
 
     test('Should match Korean multiple words', () => {
-      files = [new TFile('대한민국 서울특별시')]
+      files = [{ basename: '대한민국 서울특별시' }]
       const line = '대한민국 서울특별시에 살고 있다'
       const cursorPos = 10 // cursor on "서울특별시"
 

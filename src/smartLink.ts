@@ -1,7 +1,9 @@
-import { TFile } from 'obsidian'
-
 export interface SmartLinkSettings {
   caseSensitive: boolean
+}
+
+export interface FileInfo {
+  basename: string
 }
 
 export class SmartLinkCore {
@@ -136,7 +138,7 @@ export class SmartLinkCore {
     return expandedResults.length > 0 ? expandedResults : null
   }
 
-  findBestMatch(text: string, files: TFile[]): string | null {
+  findBestMatch(text: string, files: FileInfo[]): string | null {
     const fileNames = files.map((f) => f.basename)
     const searchText = this.settings.caseSensitive ? text : text.toLowerCase()
 
@@ -275,7 +277,7 @@ export class SmartLinkCore {
   processSmartLink(
     line: string,
     cursorPos: number,
-    files: TFile[]
+    files: FileInfo[]
   ): { result: string; start: number; end: number } | null {
     const expandedSelections = this.getExpandedSelections(line, cursorPos)
     if (!expandedSelections || expandedSelections.length === 0) {
