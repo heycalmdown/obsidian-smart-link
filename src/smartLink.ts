@@ -1,16 +1,58 @@
 export interface SmartLinkSettings {
   caseSensitive: boolean
+  excludeDirectories: string[]
+  excludeNotes: string[]
 }
 
 export interface FileInfo {
   basename: string
+  path?: string
 }
 
 export class SmartLinkCore {
   private settings: SmartLinkSettings
 
-  constructor(settings: SmartLinkSettings = { caseSensitive: false }) {
+  constructor(
+    settings: SmartLinkSettings = { caseSensitive: false, excludeDirectories: [], excludeNotes: [] }
+  ) {
     this.settings = settings
+  }
+
+  filterFiles(files: FileInfo[]): FileInfo[] {
+    return files.filter((file) => {
+      // Check if note is in exclude list (supports regex patterns)
+      if (this.settings.excludeNotes && this.settings.excludeNotes.length > 0) {
+        const isExcluded = this.settings.excludeNotes.some((pattern) => {
+          try {
+            // Try to use as regex pattern
+            const regex = new RegExp(pattern)
+            return regex.test(file.basename)
+          } catch {
+            // If regex is invalid, fall back to exact string match
+            return pattern === file.basename
+          }
+        })
+        if (isExcluded) {
+          return false
+        }
+      }
+
+      // Check if file is in excluded directory
+      if (
+        file.path &&
+        this.settings.excludeDirectories &&
+        this.settings.excludeDirectories.length > 0
+      ) {
+        const filePath = file.path
+        return !this.settings.excludeDirectories.some((excludeDir) => {
+          // Handle both with and without trailing slash
+          const normalizedExcludeDir = excludeDir.endsWith('/') ? excludeDir : excludeDir + '/'
+          return filePath.startsWith(normalizedExcludeDir) || filePath === excludeDir
+        })
+      }
+
+      return true
+    })
   }
 
   getExpandedSelections(
@@ -168,6 +210,37 @@ export class SmartLinkCore {
           bestMatchPosition = matchIndex
         }
         continue
+      }
+
+      // 1.5. Check if the search text contains a prefix of the file name
+      // This handles cases like "2025-08-09 test" matching "2025-08-09-Sat"
+      // Only consider prefixes of meaningful length (at least 3 characters)
+      for (
+        let prefixLength = Math.min(compareFileName.length, searchText.length);
+        prefixLength >= 3; // Minimum prefix length to avoid spurious matches
+        prefixLength--
+      ) {
+        const filePrefix = compareFileName.substring(0, prefixLength)
+        const textPrefix = searchText.substring(0, prefixLength)
+
+        if (filePrefix === textPrefix) {
+          // Found a prefix match - prioritize longer prefixes
+          const matchLength = compareFileName.length // Use full filename length for scoring
+
+          const isBetterMatch =
+            matchLength > bestMatchLength ||
+            (matchLength === bestMatchLength && 0 < bestMatchPosition) ||
+            (matchLength === bestMatchLength &&
+              bestMatchPosition === 0 &&
+              prefixLength > (bestMatch?.length || 0))
+
+          if (isBetterMatch) {
+            bestMatch = fileName
+            bestMatchLength = matchLength
+            bestMatchPosition = 0
+          }
+          break // Found the longest possible prefix for this file
+        }
       }
 
       // 2. Check if the search text starts with the file name (partial match)
@@ -352,27 +425,62 @@ export class SmartLinkCore {
     for (const selection of expandedSelections) {
       const match = this.findBestMatch(selection.text, files)
       if (match) {
-        // Calculate a score based on:
-        // 1. File name length (longer is better)
-        // 2. How much of the selection overlaps with the file name
-        const fileNameLength = match.length
         const selectionText = this.settings.caseSensitive
           ? selection.text
           : selection.text.toLowerCase()
         const compareFileName = this.settings.caseSensitive ? match : match.toLowerCase()
 
-        let overlapLength = 0
-        if (selectionText.includes(compareFileName)) {
-          overlapLength = compareFileName.length
-        } else if (compareFileName.startsWith(selectionText)) {
-          overlapLength = selectionText.length
-        } else if (selectionText.startsWith(compareFileName)) {
-          overlapLength = compareFileName.length
+        // Calculate a comprehensive score based on multiple factors
+        let score = 0
+
+        // Factor 1: File name length (longer is better) - Weight: 10000
+        score += match.length * 10000
+
+        // Factor 2: How much text the filename actually covers in the original line
+        // This is critical for the edge case where we want to match more of the actual content
+        const lineText = this.settings.caseSensitive ? line : line.toLowerCase()
+        let actualCoverage = 0
+
+        // Check how much of the line the filename can match
+        const fileMatchIndex = lineText.indexOf(compareFileName)
+        if (fileMatchIndex !== -1) {
+          actualCoverage = compareFileName.length
+          // Bonus for matching at the beginning of the line
+          if (fileMatchIndex === 0) {
+            score += 1000
+          }
+        } else if (lineText.startsWith(compareFileName)) {
+          actualCoverage = compareFileName.length
+          score += 1000 // Beginning match bonus
+        } else if (compareFileName.startsWith(lineText.trim())) {
+          actualCoverage = lineText.trim().length
         }
 
-        // Score is file length * 1000 + overlap length
-        // This prioritizes longer file names, but breaks ties with overlap
-        const score = fileNameLength * 1000 + overlapLength
+        // Factor 3: Actual coverage weight - Weight: 1000
+        score += actualCoverage * 1000
+
+        // Factor 4: Selection relevance - how well the selection captures the match
+        let selectionRelevance = 0
+        if (selectionText.includes(compareFileName)) {
+          selectionRelevance = compareFileName.length
+        } else if (compareFileName.startsWith(selectionText)) {
+          selectionRelevance = selectionText.length
+        } else if (selectionText.startsWith(compareFileName)) {
+          selectionRelevance = compareFileName.length
+        }
+
+        // Factor 5: Selection relevance weight - Weight: 100
+        score += selectionRelevance * 100
+
+        // Factor 6: Selection size penalty for overly broad selections
+        // Prefer selections that are more focused, but don't penalize reasonable suffix inclusion
+        const excessLength = selectionText.length - compareFileName.length
+        let selectionSizePenalty = 0
+        if (excessLength > 8) {
+          // Only penalize significantly oversized selections
+          selectionSizePenalty = (excessLength - 8) * 10
+        }
+        score -= selectionSizePenalty
 
         if (score > bestMatchScore) {
           bestMatch = match
@@ -386,14 +494,91 @@ export class SmartLinkCore {
       return null
     }
 
-    const linkText = this.createLinkText(bestSelection.text, bestMatch)
+    // For edge cases, we need to create a more targeted text for link creation
+    // instead of using the entire selection
+    const selectionText = this.settings.caseSensitive
+      ? bestSelection.text
+      : bestSelection.text.toLowerCase()
+    const compareFileName = this.settings.caseSensitive ? bestMatch : bestMatch.toLowerCase()
 
-    // Use the original selection end position to ensure we only replace
-    // text within the bounds of what was selected, not beyond
+    let actualTextForLink = bestSelection.text
+    let actualStart = bestSelection.start
+    let actualEnd = bestSelection.end
+
+    // Handle very specific edge cases where selection contains spurious extra content
+    // This should ONLY trigger for the specific problematic patterns we're trying to fix
+    const isDatePatternWithExtra = /^\d{4}-\d{2}-\d{2}\s+\w+/.test(selectionText) // Date pattern with extra words
+    const isPrefixMatchScenario =
+      !selectionText.includes(compareFileName) &&
+      compareFileName.startsWith(selectionText.split(' ')[0]) &&
+      selectionText.length > 12 // Only for significantly longer selections
+
+    // Case where filename is contained but cursor was outside filename area (spurious extra content)
+    // Only apply when there's a significant amount of extra content that looks spurious
+    const hasSpuriousExtraContent =
+      selectionText.includes(compareFileName) &&
+      selectionText.length > compareFileName.length + 8 && // Significant extra content
+      !/\s(was|is|are|were|been|have|has|had|will|would|could|should|may|might|can|do|does|did|am|the|a|an|and|or|but|of|in|on|at|to|for|with|by)\b/.test(
+        selectionText
+      ) // No common English connecting words that suggest legitimate continuation
+
+    // Be extremely selective - only apply for the specific edge cases we identified
+    // DO NOT interfere with normal suffix handling like " was", " skills", etc.
+    const shouldApplyEdgeCaseLogic =
+      isDatePatternWithExtra || isPrefixMatchScenario || hasSpuriousExtraContent
+
+    if (shouldApplyEdgeCaseLogic) {
+      if (selectionText.includes(compareFileName)) {
+        // Case 1: Full filename is contained (e.g., "React Native" in "React Native development stuff")
+        const matchIndex = selectionText.indexOf(compareFileName)
+        if (matchIndex !== -1) {
+          actualStart = bestSelection.start + matchIndex
+          actualEnd = bestSelection.start + matchIndex + compareFileName.length
+
+          // Extend slightly for Korean particles, but not for English spaces
+          while (actualEnd < bestSelection.end && actualEnd < line.length) {
+            const char = line[actualEnd]
+            // Only extend for Korean particles, not for English spaces
+            if (/[가-힣]/.test(char) && actualEnd - actualStart < compareFileName.length + 2) {
+              actualEnd++
+            } else {
+              break
+            }
+          }
+          actualTextForLink = line.substring(actualStart, actualEnd)
+        }
+      } else if (isPrefixMatchScenario) {
+        // Case 2: Prefix match (e.g., "2025-08-09-Sat" prefix matches "2025-08-09 test")
+        let commonPrefixLength = 0
+        for (let i = 0; i < Math.min(selectionText.length, compareFileName.length); i++) {
+          if (selectionText[i] === compareFileName[i]) {
+            commonPrefixLength++
+          } else {
+            break
+          }
+        }
+
+        if (commonPrefixLength > 8) {
+          // Increase threshold to be more selective
+          actualStart = bestSelection.start
+          actualEnd = bestSelection.start + commonPrefixLength
+
+          // Allow Korean particles but not English words
+          if (actualEnd < line.length && /[가-힣]/.test(line[actualEnd])) {
+            actualEnd++
+          }
+
+          actualTextForLink = line.substring(actualStart, actualEnd)
+        }
+      }
+    }
+
+    const linkText = this.createLinkText(actualTextForLink, bestMatch)
+
     return {
       result: linkText,
-      start: bestSelection.start,
-      end: bestSelection.end,
+      start: actualStart,
+      end: actualEnd,
     }
   }
 

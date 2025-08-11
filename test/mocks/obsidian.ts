@@ -60,6 +60,63 @@ export class Plugin {
   async saveData(_data: unknown): Promise<void> {}
 
   addCommand(_command: unknown): void {}
+
+  addSettingTab(_settingTab: unknown): void {}
+}
+
+export class App {}
+
+export class PluginSettingTab {
+  app: App
+  plugin: Plugin
+
+  constructor(app: App, plugin: Plugin) {
+    this.app = app
+    this.plugin = plugin
+  }
+
+  display(): void {}
+}
+
+export class Setting {
+  constructor(_containerEl: unknown) {}
+
+  setName(_name: string): this {
+    return this
+  }
+
+  setDesc(_desc: string): this {
+    return this
+  }
+
+  addToggle(_callback: (toggle: MockToggle) => void): this {
+    return this
+  }
+
+  addText(_callback: (text: MockText) => void): this {
+    return this
+  }
+
+  addButton(_callback: (button: MockButton) => void): this {
+    return this
+  }
+}
+
+interface MockToggle {
+  setValue(value: boolean): MockToggle
+  onChange(callback: (value: boolean) => void): MockToggle
+}
+
+interface MockText {
+  inputEl: HTMLInputElement
+  setPlaceholder(placeholder: string): MockText
+}
+
+interface MockButton {
+  setButtonText(text: string): MockButton
+  setCta(): MockButton
+  setWarning(): MockButton
+  onClick(callback: () => void): MockButton
 }
 
 export interface MarkdownView {}
