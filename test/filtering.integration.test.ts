@@ -78,15 +78,15 @@ describe('Filtering Integration Tests', () => {
   describe('excludeNotes integration', () => {
     test('Should exclude specific notes from smart link creation', () => {
       // Setup: exclude specific notes
-      plugin.settings.excludeNotes = ['Template', 'Daily Template']
+      plugin.settings.excludeNotes = ['Template', 'Daily Template', 'Project Note']
       plugin.smartLinkCore = new SmartLinkCore(plugin.settings)
 
       const editor = new Editor('I need a template for my project', { line: 0, ch: 10 })
 
-      // Call createSmartLink - should not find "Template" because it's excluded
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      // Call createSmartLinks - should not find "Template" or "Project Note" because they're excluded
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
-      // Should not create a link since "Template" is excluded
+      // Should not create any links since both matches are excluded
       expect(editor.getContent()).toBe('I need a template for my project')
     })
 
@@ -97,22 +97,22 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('I need project note details', { line: 0, ch: 10 })
 
-      // Call createSmartLink - should find "Project Note" since it's not excluded
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      // Call createSmartLinks - should find "Project Note" since it's not excluded
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should create a link for "Project Note"
       expect(editor.getContent()).toContain('[[Project Note]]')
     })
 
-    test('Should work with createAllSmartLinks command', () => {
+    test('Should work with createSmartLinks command', () => {
       // Setup: exclude specific notes
       plugin.settings.excludeNotes = ['Template']
       plugin.smartLinkCore = new SmartLinkCore(plugin.settings)
 
       const editor = new Editor('My Note and Project Note are important', { line: 0, ch: 0 })
 
-      // Call createAllSmartLinks
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      // Call createSmartLinks
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should create links for non-excluded notes
       const result = editor.getContent()
@@ -130,8 +130,8 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('I need a template for my work', { line: 0, ch: 10 })
 
-      // Call createSmartLink - should not find templates in Templates directory
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      // Call createSmartLinks - should not find templates in Templates directory
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should not create a link since files in Templates are excluded
       expect(editor.getContent()).toBe('I need a template for my work')
@@ -144,8 +144,8 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('Check the archive note', { line: 0, ch: 10 })
 
-      // Call createSmartLink
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      // Call createSmartLinks
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should not create link since Archive Note is in Archive/Old
       expect(editor.getContent()).toBe('Check the archive note')
@@ -158,7 +158,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('I need a template', { line: 0, ch: 10 })
 
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should not create link since Templates files are excluded
       expect(editor.getContent()).toBe('I need a template')
@@ -171,7 +171,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('Check my note, project note and archive note', { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[My Note]]')
@@ -193,7 +193,7 @@ describe('Filtering Integration Tests', () => {
         { line: 0, ch: 0 }
       )
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[My Note]]') // Should be linked
@@ -211,7 +211,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('I need a template', { line: 0, ch: 10 })
 
-      plugin['createSmartLink'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       // Should not create link (excluded by both methods)
       expect(editor.getContent()).toBe('I need a template')
@@ -225,7 +225,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('My Note and Template work', { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[My Note]]')
@@ -242,7 +242,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('No Path Note and Regular Note', { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[No Path Note]]') // Should work even without path
@@ -263,7 +263,7 @@ describe('Filtering Integration Tests', () => {
 
       const editor = new Editor('Template and template', { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[Template]]') // Should be linked (not excluded)
@@ -293,7 +293,7 @@ describe('Filtering Integration Tests', () => {
         { line: 0, ch: 0 }
       )
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       const result = editor.getContent()
       expect(result).toContain('[[Important Note]]') // Should be linked

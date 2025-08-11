@@ -53,12 +53,12 @@ describe('SmartLinkPlugin Integration Tests', () => {
     plugin['smartLinkCore'] = new SmartLinkCore(plugin.settings)
   })
 
-  describe('createAllSmartLinks command', () => {
+  describe('createSmartLinks command', () => {
     test('Should create all smart links in English sentence', () => {
       const content = 'I love React and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
@@ -67,7 +67,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = '인공지능과 머신러닝을 공부한다'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('[[인공지능]]과 [[머신러닝]]을 공부한다')
     })
@@ -76,7 +76,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'Claude Code는 인공지능이다'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('[[Claude Code]]는 [[인공지능]]이다')
     })
@@ -90,7 +90,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I use Visual Studio Code for development'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I use [[Visual Studio Code]] for development')
     })
@@ -99,7 +99,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love [[React]] and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
@@ -110,19 +110,19 @@ describe('SmartLinkPlugin Integration Tests', () => {
 
       positions.forEach((position) => {
         editor = new Editor(content, { line: 0, ch: position })
-        plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+        plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
         expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
       })
     })
   })
 
   describe('Command differences', () => {
-    test('createSmartLink vs createAllSmartLinks', () => {
+    test('createSmartLinks command', () => {
       const content = 'I love React and JavaScript programming'
 
-      // Test createAllSmartLinks
+      // Test createSmartLinks
       editor = new Editor(content, { line: 0, ch: 10 })
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
   })
@@ -132,7 +132,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = ''
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('')
     })
@@ -141,7 +141,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love programming with various tools'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love programming with various tools')
     })
@@ -150,7 +150,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love [[React and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toContain('[[JavaScript]]')
     })
@@ -166,7 +166,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love javascript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love javascript programming')
     })
@@ -180,7 +180,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love javascript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[JavaScript]] programming')
     })
@@ -197,7 +197,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'Python with Django and FastAPI is powerful'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe(
         '[[Python]] with [[Django]] and [[FastAPI]] is powerful'
@@ -215,7 +215,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'UnresolvedNote and ResolvedNote are interesting'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
+      plugin['createSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe(
         '[[UnresolvedNote]] and [[ResolvedNote]] are interesting'

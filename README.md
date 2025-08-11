@@ -6,78 +6,94 @@ A powerful Obsidian plugin that intelligently creates wiki-style links with auto
 
 ## Features
 
-### 🔗 Intelligent Single Link Creation
+### 🔗 Intelligent Link Creation
 
-Smart Link analyzes the context around your cursor to automatically create the most appropriate link. It prioritizes longer, more specific matches over shorter ones.
+Smart Link automatically processes the entire line and creates all possible smart links. It prioritizes longer, more specific matches over shorter ones.
 
-### ⚡ NEW: Create All Smart Links
+### ⚡ Smart Matching Algorithm
 
-**NEW FEATURE**: Automatically create ALL possible smart links in an entire line at once!
+The plugin uses an advanced matching algorithm that:
 
-Place your cursor anywhere on a line and use the "Create all smart links in line" command to instantly convert every linkable term into a wiki link. Perfect for quickly processing notes with many references.
+- Finds exact matches where note titles appear in your text
+- Detects prefix matches where your text is the beginning of a note title
+- Prioritizes the longest matching text for the most accurate links
+- Handles word boundaries and grammatical particles intelligently
 
 ### 🌐 Universal Language Support
 
 Specially designed for agglutinative languages but works perfectly with any language:
+
 - **Korean**: Handles particles like 이/가, 을/를, 에서, 으로
-- **Japanese**: Supports particles and grammatical elements  
+- **Japanese**: Supports particles and grammatical elements
 - **Turkish**: Handles complex suffix systems
 - **English**: Standard word boundary detection
 - **Mixed languages**: Seamlessly handles multilingual content
 
 ## Commands
 
-### 1. Create Smart Link
-**Default Hotkey**: Cmd/Ctrl + Shift + K  
-Creates a single smart link at the cursor position.
+### Create Smart Link
 
-### 2. Create All Smart Links in Line  
-**NEW**: No default hotkey (assign in settings)  
-Creates ALL possible smart links in the entire line from the beginning.
+**Default Hotkey**: Cmd/Ctrl + Shift + K  
+**Default Hotkey**: No default hotkey (assign in settings)  
+Same functionality as "Create Smart Link" - processes the entire line and creates all possible smart links.
 
 ## Examples
 
-### Single Link Creation
+### Smart Link Creation
 
 #### English Examples
 
 **Basic linking**
+
 - You have a note called `Project Management`
 - Text: "I need to improve my project management skills"
-- Cursor on "project management" → Result: "I need to improve my [[Project Management]] skills"
+- Result: "I need to improve my [[Project Management]] skills"
 
 **Longer match priority**
+
 - You have notes: `World Cup` and `2022 FIFA World Cup`
 - Text: "The 2022 FIFA World Cup was held in Qatar"
-- Cursor on "World Cup" → Result: "The [[2022 FIFA World Cup]] was held in Qatar"
+- Result: "The [[2022 FIFA World Cup]] was held in Qatar"
+
+**Prefix matching **
+
+- You have notes: `2025-08-10-Sun` and `2025-08`
+- Text: "2025-08-10 test"
+- Result: "[[2025-08-10-Sun]] test" (matches the longest prefix)
 
 #### Korean Examples (Agglutinative Language)
 
 **Particle handling**
+
 - You have a note: `서울특별시` (Seoul)
 - Text: "서울특별시에서 만났다" (Met in Seoul)
-- Cursor on "서울특별시에서" → Result: "[[서울특별시]]에서 만났다"
+- Result: "[[서울특별시]]에서 만났다"
 
 **Complex matching with particles**
-- You have notes: `인공지능` (AI) and `생성형 인공지능` (Generative AI)  
-- Text: "생성형 인공지능이 발전하고 있다" (Generative AI is advancing)
-- Cursor on "인공지능" → Result: "[[생성형 인공지능]]이 발전하고 있다"
 
-### ALL Links Creation (NEW!)
+- You have notes: `인공지능` (AI) and `생성형 인공지능` (Generative AI)
+- Text: "생성형 인공지능이 발전하고 있다" (Generative AI is advancing)
+- Result: "[[생성형 인공지능]]이 발전하고 있다"
+
+### Multiple Links in a Line
 
 **English example**
+
 - Text: "I love React and JavaScript programming"
 - Result: "I love [[React]] and [[JavaScript]] programming"
 
-**Korean example with particles**  
+**Korean example with particles**
+
 - Text: "인공지능과 머신러닝을 공부한다" (Studying AI and machine learning)
 - Result: "[[인공지능]]과 [[머신러닝]]을 공부한다"
 
 **Mixed language example**
+
 - Text: "Claude Code는 인공지능이다" (Claude Code is AI)
 - Result: "[[Claude Code]]는 [[인공지능]]이다"
 
 **Complex Korean sentence**
+
 - Text: "서울에서 부산으로 대구를 거쳐서" (From Seoul to Busan via Daegu)
 - Result: "[[서울]]에서 [[부산]]으로 [[대구]]를 거쳐서"
 
@@ -103,26 +119,17 @@ Creates ALL possible smart links in the entire line from the beginning.
 1. Go to Settings → Hotkeys
 2. Search for "Smart Link"
 3. Assign hotkeys to:
-   - **Create smart link**: Single link at cursor
-   - **Create all smart links in line**: ALL links in entire line
+   - **Create smart link**: Processes entire line and creates all smart links
 
-### How Single Links Work
+### How It Works
 
-1. Place your cursor on or near the text you want to link
-2. Press the hotkey or run the "Create smart link" command
-3. The plugin will:
-   - Expand from cursor position to find potential matches
-   - Search all your notes for the best matching title
-   - Replace the text with a properly formatted link
-   - Preserve any grammatical particles or suffixes outside the link
-
-### How "Create All Links" Works
-
-1. Place your cursor anywhere on the line
-2. Press the hotkey or run the "Create all smart links in line" command  
+1. Place your cursor anywhere on the line you want to process
+2. Press the hotkey or run either command
 3. The plugin will:
    - Scan the ENTIRE line from the beginning
    - Find ALL possible matches with your note titles
+   - Use intelligent matching to find both exact and prefix matches
+   - Prioritize longer matches for better accuracy
    - Create multiple links simultaneously
    - Skip existing `[[wiki links]]`
    - Preserve all grammatical elements and punctuation
@@ -130,21 +137,26 @@ Creates ALL possible smart links in the entire line from the beginning.
 ## Key Features
 
 ### 🎯 Intelligent Matching
+
 - **Priority-based**: Longer, more specific matches win
+- **Prefix matching**: Detects when text is the beginning of a note title (e.g., "2025-08-10" matches "2025-08-10-Sun")
 - **Context-aware**: Understands word boundaries and grammatical elements
 - **Fuzzy matching**: Handles case differences and spacing variations
 
 ### 🔄 Existing Link Preservation
+
 - Skips text already in `[[wiki links]]`
 - Won't modify existing link structures
 - Handles malformed links gracefully
 
 ### ⚙️ Smart Text Processing
+
 - **Word boundary detection**: Respects punctuation and spacing
 - **Particle separation**: Keeps Korean/Japanese particles outside links
 - **Multi-word matching**: Handles phrases like "Visual Studio Code"
 
 ### 🚀 Performance Optimized
+
 - Efficient algorithm for large vaults
 - Fast processing even with hundreds of notes
 - Real-time matching as you type
@@ -162,12 +174,12 @@ Access plugin settings through: Settings → Community Plugins → Smart Link �
   - Enter directory paths relative to vault root (e.g., "Templates", "Archive/Old")
   - Supports multiple entries with individual removal buttons
 - **Exclude Notes**: Exclude specific notes from smart link suggestions
-  - **NEW**: Supports regular expressions for powerful pattern matching
+  - Supports regular expressions for powerful pattern matching
   - Enter exact note names or regex patterns
   - Examples:
     - `Daily Notes Template` - Exclude specific note
     - `^Draft.*` - Exclude all notes starting with "Draft"
-    - `.*Template$` - Exclude all notes ending with "Template"  
+    - `.*Template$` - Exclude all notes ending with "Template"
     - `\d{4}-\d{2}-\d{2}` - Exclude date-formatted notes (YYYY-MM-DD)
     - `(TODO|DONE|PENDING)` - Exclude notes containing status words
     - `^_.*` - Exclude all notes starting with underscore
@@ -182,28 +194,27 @@ Access plugin settings through: Settings → Community Plugins → Smart Link �
 
 The Smart Link algorithm works as follows:
 
-### Single Link Creation
-1. **Text Expansion**: Starting from cursor position, expands outward word by word
-2. **Match Finding**: For each expansion level, searches all note titles for matches
-3. **Priority Calculation**: Prioritizes matches based on:
-   - Match length (longer is better)
-   - Match position (earlier in selection is better)  
-   - Exact match vs fuzzy match
-4. **Link Creation**: Replaces matched portion with wiki link, preserving surrounding text
+### Smart Link Processing
 
-### All Links Creation (NEW)
 1. **Line Scanning**: Processes entire line from beginning to end
-2. **File Priority**: Sorts files by length (longer names first) for better matching
-3. **Overlap Prevention**: Tracks processed regions to avoid duplicate links
-4. **Boundary Validation**: Ensures proper word boundaries and particle handling
-5. **Batch Processing**: Applies all replacements from end to beginning
+2. **Match Detection**: For each position in the line:
+   - Checks for exact matches (note title appears in text)
+   - Checks for prefix matches (text is a prefix of note title)
+   - Prioritizes longer matching strings
+3. **Match Priority**:
+   - Exact matches take precedence over prefix matches
+   - Among matches of same type, longer matches win
+   - For prefix matches, longest matching prefix is selected
+4. **Overlap Prevention**: Tracks processed regions to avoid duplicate links
+5. **Boundary Validation**: Ensures proper word boundaries and particle handling
+6. **Batch Processing**: Applies all replacements from end to beginning
 
 ## Development
 
 ### Setup
 
 ```bash
-# Install dependencies  
+# Install dependencies
 npm install
 
 # Development build with hot reload
@@ -233,7 +244,7 @@ obsidian-smart-link/
 │   ├── plugin.integration.test.ts      # Plugin integration tests
 │   └── mocks/           # Test mocks
 ├── manifest.json        # Plugin manifest
-├── package.json         # NPM dependencies  
+├── package.json         # NPM dependencies
 └── tsconfig.json        # TypeScript configuration
 ```
 
@@ -249,7 +260,7 @@ npm test
 
 # Run specific test suites
 npm test smartLinkCore.unit.test.ts
-npm test processAllSmartLinks.feature.test.ts  
+npm test processAllSmartLinks.feature.test.ts
 npm test plugin.integration.test.ts
 ```
 
@@ -262,23 +273,27 @@ MIT License - see LICENSE file for details
 If you find this plugin helpful, consider:
 
 - Starring the repository on GitHub
-- Reporting bugs or suggesting features through GitHub Issues  
+- Reporting bugs or suggesting features through GitHub Issues
 - Contributing to the codebase
 
 ## Changelog
 
 ### Latest Version
+
+- ✨ **NEW**: Enhanced prefix matching algorithm - intelligently matches partial text with note titles
+- ✨ **NEW**: Both commands now process entire lines automatically
 - ✨ **NEW**: Regular expression support for exclude notes patterns
-- ✨ **NEW**: "Create all smart links in line" command
-- ✨ **NEW**: Process entire lines with multiple links at once
-- ✨ **NEW**: Enhanced Korean particle handling for batch processing
 - ✨ **NEW**: Exclude directories and notes settings with UI management
+- 🔄 **CHANGED**: Unified behavior - all commands now create all possible links in a line
+- 🔄 **CHANGED**: Removed separate single link creation - all operations are now batch
+- 🐛 **FIXED**: Improved matching priority - longer prefixes now correctly take precedence
 - 🐛 **FIXED**: Multiline boundary handling bug
-- 🐛 **FIXED**: Edge cases in date pattern matching (e.g., "2025-08-09 test")
+- 🐛 **FIXED**: Edge cases in date pattern matching (e.g., "2025-08-10" correctly matches "2025-08-10-Sun")
 - 🧪 **IMPROVED**: Comprehensive test coverage with 80+ tests
 - 📚 **IMPROVED**: Better documentation and examples
 
 ### Previous Versions
+
 - Initial release with single link creation
 - Korean agglutinative language support
 - Priority-based matching algorithm
@@ -290,7 +305,7 @@ If you find this plugin helpful, consider:
 - [x] ✅ Create all links in line (COMPLETED)
 - [x] ✅ Exclude directories and notes filtering (COMPLETED)
 - [x] ✅ Regular expression support for exclude patterns (COMPLETED)
-- [ ] Support for alias matching  
+- [ ] Support for alias matching
 - [ ] Multi-cursor support
 - [ ] Performance optimizations for very large vaults
 - [ ] Support for linking to headings and blocks

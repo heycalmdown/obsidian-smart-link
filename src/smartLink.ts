@@ -224,15 +224,13 @@ export class SmartLinkCore {
         const textPrefix = searchText.substring(0, prefixLength)
 
         if (filePrefix === textPrefix) {
-          // Found a prefix match - prioritize longer prefixes
-          const matchLength = compareFileName.length // Use full filename length for scoring
+          // Found a prefix match - use the actual prefix length for scoring
+          // This ensures that longer prefix matches are prioritized
+          const matchLength = prefixLength // Use actual prefix length for accurate scoring
 
           const isBetterMatch =
             matchLength > bestMatchLength ||
-            (matchLength === bestMatchLength && 0 < bestMatchPosition) ||
-            (matchLength === bestMatchLength &&
-              bestMatchPosition === 0 &&
-              prefixLength > (bestMatch?.length || 0))
+            (matchLength === bestMatchLength && 0 < bestMatchPosition)
 
           if (isBetterMatch) {
             bestMatch = fileName
@@ -589,52 +587,124 @@ export class SmartLinkCore {
     // Sort files by length (descending) to prioritize longer matches
     const sortedFiles = [...files].sort((a, b) => b.basename.length - a.basename.length)
 
-    for (const file of sortedFiles) {
-      const fileName = file.basename
-      const searchText = this.settings.caseSensitive ? line : line.toLowerCase()
-      const compareFileName = this.settings.caseSensitive ? fileName : fileName.toLowerCase()
+    const searchText = this.settings.caseSensitive ? line : line.toLowerCase()
 
-      // Find all occurrences of this filename in the line
-      let startIndex = 0
-      while (startIndex < searchText.length) {
-        const matchIndex = searchText.indexOf(compareFileName, startIndex)
-        if (matchIndex === -1) break
+    // Process each position in the line
+    for (let pos = 0; pos < searchText.length; pos++) {
+      // Skip if this position is already processed
+      const alreadyProcessed = processedRegions.some(
+        (region) => pos >= region.start && pos < region.end
+      )
+      if (alreadyProcessed) continue
 
-        const matchEnd = matchIndex + compareFileName.length
+      // Skip if inside wiki link
+      if (this.isInsideWikiLink(line, pos)) continue
 
-        // Check if this position is inside an existing wiki link
-        const insideLink = this.isInsideWikiLink(line, matchIndex)
-        if (insideLink) {
-          startIndex = matchIndex + 1
-          continue
-        }
+      let bestMatch: {
+        file: FileInfo
+        start: number
+        end: number
+        matchType: 'exact' | 'prefix'
+        matchLength: number
+      } | null = null
 
-        // Check if this region overlaps with any already processed region
-        const overlaps = processedRegions.some(
-          (region) =>
-            (matchIndex >= region.start && matchIndex < region.end) ||
-            (matchEnd > region.start && matchEnd <= region.end) ||
-            (matchIndex <= region.start && matchEnd >= region.end)
-        )
+      // Check all files for the best match at this position
+      for (const file of sortedFiles) {
+        const fileName = file.basename
+        const compareFileName = this.settings.caseSensitive ? fileName : fileName.toLowerCase()
 
-        if (!overlaps) {
-          // Check word boundaries to avoid partial matches
-          const isValidMatch = this.isValidWordMatch(line, matchIndex, matchEnd)
-
-          if (isValidMatch) {
-            // Create the link text using the existing logic
-            const originalText = line.substring(matchIndex, matchEnd)
-            const linkText = this.createLinkText(originalText, fileName)
-
-            processedRegions.push({
-              start: matchIndex,
-              end: matchEnd,
-              replacement: linkText,
-            })
+        // Check for exact match at this position (filename appears in text)
+        if (searchText.substring(pos).startsWith(compareFileName)) {
+          const matchEnd = pos + compareFileName.length
+          if (this.isValidWordMatch(line, pos, matchEnd)) {
+            // This is an exact substring match in the text
+            if (!bestMatch || compareFileName.length > bestMatch.matchLength) {
+              bestMatch = {
+                file,
+                start: pos,
+                end: matchEnd,
+                matchType: 'exact',
+                matchLength: compareFileName.length,
+              }
+            }
           }
         }
 
-        startIndex = matchIndex + 1
+        // Check for prefix match (text is a prefix of filename)
+        // Skip if this file already matched exactly
+        if (bestMatch?.file === file && bestMatch.matchType === 'exact') continue
+
+        const remainingText = searchText.substring(pos)
+        for (let len = Math.min(compareFileName.length, remainingText.length); len >= 3; len--) {
+          const textPart = remainingText.substring(0, len)
+          const filePart = compareFileName.substring(0, len)
+
+          if (textPart === filePart && this.isValidWordMatch(line, pos, pos + len)) {
+            // Found a prefix match - text matches beginning of filename
+            // Prefix match can only override if:
+            // 1. We have no match yet
+            // 2. We have another prefix match and this one is longer
+            // 3. Never override an exact match with a prefix match
+            if (!bestMatch || (bestMatch.matchType === 'prefix' && len > bestMatch.matchLength)) {
+              bestMatch = {
+                file,
+                start: pos,
+                end: pos + len,
+                matchType: 'prefix',
+                matchLength: len,
+              }
+            }
+            break // Found the longest prefix for this file
+          }
+        }
+      }
+
+      if (bestMatch) {
+        // Create the link text
+        const originalText = line.substring(bestMatch.start, bestMatch.end)
+        let linkText: string
+
+        if (bestMatch.matchType === 'exact') {
+          // For exact matches, use createLinkText to handle suffixes
+          linkText = this.createLinkText(originalText, bestMatch.file.basename)
+        } else {
+          // For prefix matches, just create the link
+          linkText = `[[${bestMatch.file.basename}]]`
+
+          // Handle Korean particles or other suffixes
+          let suffixEnd = bestMatch.end
+          if (suffixEnd < line.length) {
+            const afterText = line.substring(suffixEnd)
+            // Check for Korean particles
+            const koreanParticleMatch = afterText.match(
+              /^([을를이가은는에서의으로와과도만까지부터에게한테께서보다처럼같이]+)(?=\s|$|[.,!?])/
+            )
+            if (koreanParticleMatch) {
+              suffixEnd += koreanParticleMatch[1].length
+              linkText += koreanParticleMatch[1]
+            }
+          }
+        }
+
+        // Determine the actual end position for replacement
+        let replaceEnd = bestMatch.end
+        if (
+          bestMatch.matchType === 'exact' &&
+          linkText.length > `[[${bestMatch.file.basename}]]`.length
+        ) {
+          // If createLinkText added suffixes, calculate the actual end
+          const suffixLength = linkText.length - `[[${bestMatch.file.basename}]]`.length
+          replaceEnd = bestMatch.end + suffixLength
+        }
+
+        processedRegions.push({
+          start: bestMatch.start,
+          end: replaceEnd,
+          replacement: linkText,
+        })
+
+        // Skip ahead past this match
+        pos = replaceEnd - 1 // -1 because the loop will increment
       }
     }
 
