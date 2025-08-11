@@ -396,4 +396,125 @@ export class SmartLinkCore {
       end: bestSelection.end,
     }
   }
+
+  processAllSmartLinks(line: string, files: FileInfo[]): string {
+    // Keep track of already processed regions to avoid overlapping replacements
+    const processedRegions: Array<{ start: number; end: number; replacement: string }> = []
+
+    // Sort files by length (descending) to prioritize longer matches
+    const sortedFiles = [...files].sort((a, b) => b.basename.length - a.basename.length)
+
+    for (const file of sortedFiles) {
+      const fileName = file.basename
+      const searchText = this.settings.caseSensitive ? line : line.toLowerCase()
+      const compareFileName = this.settings.caseSensitive ? fileName : fileName.toLowerCase()
+
+      // Find all occurrences of this filename in the line
+      let startIndex = 0
+      while (startIndex < searchText.length) {
+        const matchIndex = searchText.indexOf(compareFileName, startIndex)
+        if (matchIndex === -1) break
+
+        const matchEnd = matchIndex + compareFileName.length
+
+        // Check if this position is inside an existing wiki link
+        const insideLink = this.isInsideWikiLink(line, matchIndex)
+        if (insideLink) {
+          startIndex = matchIndex + 1
+          continue
+        }
+
+        // Check if this region overlaps with any already processed region
+        const overlaps = processedRegions.some(
+          (region) =>
+            (matchIndex >= region.start && matchIndex < region.end) ||
+            (matchEnd > region.start && matchEnd <= region.end) ||
+            (matchIndex <= region.start && matchEnd >= region.end)
+        )
+
+        if (!overlaps) {
+          // Check word boundaries to avoid partial matches
+          const isValidMatch = this.isValidWordMatch(line, matchIndex, matchEnd)
+
+          if (isValidMatch) {
+            // Create the link text using the existing logic
+            const originalText = line.substring(matchIndex, matchEnd)
+            const linkText = this.createLinkText(originalText, fileName)
+
+            processedRegions.push({
+              start: matchIndex,
+              end: matchEnd,
+              replacement: linkText,
+            })
+          }
+        }
+
+        startIndex = matchIndex + 1
+      }
+    }
+
+    // Sort regions by start position (descending) to process from end to start
+    processedRegions.sort((a, b) => b.start - a.start)
+
+    // Apply replacements from end to start to maintain positions
+    let resultLine = line
+    for (const region of processedRegions) {
+      resultLine =
+        resultLine.substring(0, region.start) +
+        region.replacement +
+        resultLine.substring(region.end)
+    }
+
+    return resultLine
+  }
+
+  private isInsideWikiLink(line: string, position: number): boolean {
+    // Find the last [[ before position
+    let linkStart = -1
+    for (let i = position - 1; i >= 0; i--) {
+      if (line.substring(i, i + 2) === '[[') {
+        linkStart = i
+        break
+      }
+    }
+
+    if (linkStart === -1) return false
+
+    // Check if there's a ]] after linkStart but before or at position
+    const linkEnd = line.indexOf(']]', linkStart)
+    return linkEnd !== -1 && linkEnd >= position
+  }
+
+  private isValidWordMatch(line: string, start: number, end: number): boolean {
+    // Check character before
+    if (start > 0) {
+      const charBefore = line[start - 1]
+      // Allow if it's whitespace or punctuation, but not alphanumeric Korean/English
+      if (/[a-zA-Z0-9\uAC00-\uD7AF]/.test(charBefore)) {
+        return false
+      }
+    }
+
+    // Check character after
+    if (end < line.length) {
+      const charAfter = line[end]
+      // For Korean text, allow particles and endings
+      const afterText = line.substring(end)
+      const koreanParticleMatch = afterText.match(
+        /^([을를이가은는에서의으로와과도만까지부터에게한테께서보다처럼같이]*)(?=\s|$|[.,!?])/
+      )
+
+      // If it's followed by Korean particles, it's valid
+      if (koreanParticleMatch && koreanParticleMatch[1].length > 0) {
+        return true
+      }
+
+      // Allow if it's whitespace or punctuation, but not alphanumeric Korean/English
+      if (/[a-zA-Z0-9\uAC00-\uD7AF]/.test(charAfter)) {
+        return false
+      }
+    }
+
+    return true
+  }
 }

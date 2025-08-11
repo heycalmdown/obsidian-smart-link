@@ -20,6 +20,14 @@ export default class SmartLinkPlugin extends Plugin {
         this.createSmartLink(editor)
       },
     })
+
+    this.addCommand({
+      id: 'smart-link-all',
+      name: 'Create all smart links in line',
+      editorCallback: (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
+        this.createAllSmartLinks(editor)
+      },
+    })
   }
 
   onunload() {}
@@ -32,10 +40,7 @@ export default class SmartLinkPlugin extends Plugin {
     await this.saveData(this.settings)
   }
 
-  private createSmartLink(editor: Editor) {
-    const cursor = editor.getCursor()
-    const line = editor.getLine(cursor.line)
-
+  private getAllLinkableFiles(): FileInfo[] {
     // Get existing files
     const allFiles = this.app.vault.getMarkdownFiles()
     const existingFiles: FileInfo[] = allFiles.map((file: TFile) => ({
@@ -75,9 +80,15 @@ export default class SmartLinkPlugin extends Plugin {
     })
 
     // Convert to FileInfo array
-    const fileInfos: FileInfo[] = Array.from(allLinkNames).map((name) => ({
+    return Array.from(allLinkNames).map((name) => ({
       basename: name,
     }))
+  }
+
+  private createSmartLink(editor: Editor) {
+    const cursor = editor.getCursor()
+    const line = editor.getLine(cursor.line)
+    const fileInfos = this.getAllLinkableFiles()
 
     const result = this.smartLinkCore.processSmartLink(line, cursor.ch, fileInfos)
 
@@ -89,6 +100,21 @@ export default class SmartLinkPlugin extends Plugin {
       result.result,
       { line: cursor.line, ch: result.start },
       { line: cursor.line, ch: result.end }
+    )
+  }
+
+  private createAllSmartLinks(editor: Editor) {
+    const cursor = editor.getCursor()
+    const line = editor.getLine(cursor.line)
+    const fileInfos = this.getAllLinkableFiles()
+
+    const newLine = this.smartLinkCore.processAllSmartLinks(line, fileInfos)
+
+    // Replace the entire line with the new line containing all smart links
+    editor.replaceRange(
+      newLine,
+      { line: cursor.line, ch: 0 },
+      { line: cursor.line, ch: line.length }
     )
   }
 }

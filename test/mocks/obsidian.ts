@@ -51,15 +51,15 @@ export class Editor {
 }
 
 export class Plugin {
-  app: any
+  app: unknown
 
-  async loadData() {
+  async loadData(): Promise<Record<string, unknown>> {
     return {}
   }
 
-  async saveData(_data: any) {}
+  async saveData(_data: unknown): Promise<void> {}
 
-  addCommand(_command: any) {}
+  addCommand(_command: unknown): void {}
 }
 
 export interface MarkdownView {}
