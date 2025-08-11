@@ -30,15 +30,7 @@ export default class SmartLinkPlugin extends Plugin {
       id: 'smart-link',
       name: 'Create smart link',
       editorCallback: (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
-        this.createSmartLink(editor)
-      },
-    })
-
-    this.addCommand({
-      id: 'smart-link-all',
-      name: 'Create all smart links in line',
-      editorCallback: (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
-        this.createAllSmartLinks(editor)
+        this.createSmartLinks(editor)
       },
     })
   }
@@ -107,25 +99,7 @@ export default class SmartLinkPlugin extends Plugin {
     return this.smartLinkCore.filterFiles(allFileInfos)
   }
 
-  private createSmartLink(editor: Editor) {
-    const cursor = editor.getCursor()
-    const line = editor.getLine(cursor.line)
-    const fileInfos = this.getAllLinkableFiles()
-
-    const result = this.smartLinkCore.processSmartLink(line, cursor.ch, fileInfos)
-
-    if (!result) {
-      return
-    }
-
-    editor.replaceRange(
-      result.result,
-      { line: cursor.line, ch: result.start },
-      { line: cursor.line, ch: result.end }
-    )
-  }
-
-  private createAllSmartLinks(editor: Editor) {
+  private createSmartLinks(editor: Editor) {
     const cursor = editor.getCursor()
     const line = editor.getLine(cursor.line)
     const fileInfos = this.getAllLinkableFiles()
