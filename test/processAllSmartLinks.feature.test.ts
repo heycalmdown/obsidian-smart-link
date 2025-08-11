@@ -6,7 +6,11 @@ describe('ProcessAllSmartLinks Feature Tests', () => {
   let files: FileInfo[]
 
   beforeEach(() => {
-    smartLink = new SmartLinkCore({ caseSensitive: false })
+    smartLink = new SmartLinkCore({
+      caseSensitive: false,
+      excludeDirectories: [],
+      excludeNotes: [],
+    })
     files = []
   })
 

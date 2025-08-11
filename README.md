@@ -151,9 +151,31 @@ Creates ALL possible smart links in the entire line from the beginning.
 
 ## Configuration
 
-Current settings support:
+### Plugin Settings
 
-- **Case sensitivity**: Toggle between case-sensitive and case-insensitive matching  
+Access plugin settings through: Settings → Community Plugins → Smart Link → Settings
+
+#### Available Settings
+
+- **Case sensitivity**: Toggle between case-sensitive and case-insensitive matching
+- **Exclude Directories**: Prevent files in specific directories from appearing in smart link suggestions
+  - Enter directory paths relative to vault root (e.g., "Templates", "Archive/Old")
+  - Supports multiple entries with individual removal buttons
+- **Exclude Notes**: Exclude specific notes from smart link suggestions
+  - **NEW**: Supports regular expressions for powerful pattern matching
+  - Enter exact note names or regex patterns
+  - Examples:
+    - `Daily Notes Template` - Exclude specific note
+    - `^Draft.*` - Exclude all notes starting with "Draft"
+    - `.*Template$` - Exclude all notes ending with "Template"  
+    - `\d{4}-\d{2}-\d{2}` - Exclude date-formatted notes (YYYY-MM-DD)
+    - `(TODO|DONE|PENDING)` - Exclude notes containing status words
+    - `^_.*` - Exclude all notes starting with underscore
+  - Invalid regex patterns automatically fall back to exact string matching
+  - Supports multiple entries with individual removal buttons
+
+### Hotkey Configuration
+
 - **Custom hotkeys**: Modify hotkeys in Obsidian's Hotkeys settings
 
 ## Algorithm
@@ -246,11 +268,14 @@ If you find this plugin helpful, consider:
 ## Changelog
 
 ### Latest Version
+- ✨ **NEW**: Regular expression support for exclude notes patterns
 - ✨ **NEW**: "Create all smart links in line" command
 - ✨ **NEW**: Process entire lines with multiple links at once
 - ✨ **NEW**: Enhanced Korean particle handling for batch processing
+- ✨ **NEW**: Exclude directories and notes settings with UI management
 - 🐛 **FIXED**: Multiline boundary handling bug
-- 🧪 **IMPROVED**: Comprehensive test coverage with 30+ tests
+- 🐛 **FIXED**: Edge cases in date pattern matching (e.g., "2025-08-09 test")
+- 🧪 **IMPROVED**: Comprehensive test coverage with 80+ tests
 - 📚 **IMPROVED**: Better documentation and examples
 
 ### Previous Versions
@@ -261,8 +286,10 @@ If you find this plugin helpful, consider:
 
 ## Roadmap
 
-- [ ] Add settings page for customization
+- [x] ✅ Add settings page for customization (COMPLETED)
 - [x] ✅ Create all links in line (COMPLETED)
+- [x] ✅ Exclude directories and notes filtering (COMPLETED)
+- [x] ✅ Regular expression support for exclude patterns (COMPLETED)
 - [ ] Support for alias matching  
 - [ ] Multi-cursor support
 - [ ] Performance optimizations for very large vaults

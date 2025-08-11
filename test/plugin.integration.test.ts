@@ -1,6 +1,7 @@
 import SmartLinkPlugin from '../main'
 import { Editor, TFile } from './mocks/obsidian'
 import { SmartLinkCore } from '../src/smartLink'
+import type { Editor as ObsidianEditor, App, PluginManifest } from 'obsidian'
 
 // <CHORUS_TAG>test</CHORUS_TAG>
 describe('SmartLinkPlugin Integration Tests', () => {
@@ -22,6 +23,15 @@ describe('SmartLinkPlugin Integration Tests', () => {
     },
   }
 
+  const mockManifest: PluginManifest = {
+    id: 'test-plugin',
+    name: 'Test Plugin',
+    author: 'Test Author',
+    version: '1.0.0',
+    minAppVersion: '0.15.0',
+    description: 'Test plugin',
+  }
+
   let plugin: SmartLinkPlugin
   let editor: Editor
 
@@ -37,9 +47,9 @@ describe('SmartLinkPlugin Integration Tests', () => {
       new TFile('Visual Studio Code'),
     ])
 
-    plugin = new SmartLinkPlugin(mockApp as unknown, {} as unknown)
-    plugin.settings = { caseSensitive: false }
-    plugin.app = mockApp as unknown
+    plugin = new SmartLinkPlugin(mockApp as unknown as App, mockManifest)
+    plugin.settings = { caseSensitive: false, excludeDirectories: [], excludeNotes: [] }
+    plugin.app = mockApp as unknown as App
     plugin['smartLinkCore'] = new SmartLinkCore(plugin.settings)
   })
 
@@ -48,7 +58,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love React and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
@@ -57,7 +67,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = '인공지능과 머신러닝을 공부한다'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('[[인공지능]]과 [[머신러닝]]을 공부한다')
     })
@@ -66,7 +76,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'Claude Code는 인공지능이다'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('[[Claude Code]]는 [[인공지능]]이다')
     })
@@ -80,7 +90,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I use Visual Studio Code for development'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I use [[Visual Studio Code]] for development')
     })
@@ -89,7 +99,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love [[React]] and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
@@ -100,7 +110,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
 
       positions.forEach((position) => {
         editor = new Editor(content, { line: 0, ch: position })
-        plugin['createAllSmartLinks'](editor)
+        plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
         expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
       })
     })
@@ -112,7 +122,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
 
       // Test createAllSmartLinks
       editor = new Editor(content, { line: 0, ch: 10 })
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
       expect(editor.getLineContent(0)).toBe('I love [[React]] and [[JavaScript]] programming')
     })
   })
@@ -122,7 +132,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = ''
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('')
     })
@@ -131,7 +141,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love programming with various tools'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love programming with various tools')
     })
@@ -140,7 +150,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love [[React and JavaScript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toContain('[[JavaScript]]')
     })
@@ -148,7 +158,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
 
   describe('Settings integration', () => {
     test('Should respect case sensitivity setting', () => {
-      plugin.settings = { caseSensitive: true }
+      plugin.settings = { caseSensitive: true, excludeDirectories: [], excludeNotes: [] }
       plugin['smartLinkCore'] = new SmartLinkCore(plugin.settings)
 
       mockApp.vault.getMarkdownFiles = jest.fn(() => [new TFile('JavaScript')])
@@ -156,13 +166,13 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love javascript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love javascript programming')
     })
 
     test('Should work with case insensitive setting (default)', () => {
-      plugin.settings = { caseSensitive: false }
+      plugin.settings = { caseSensitive: false, excludeDirectories: [], excludeNotes: [] }
       plugin['smartLinkCore'] = new SmartLinkCore(plugin.settings)
 
       mockApp.vault.getMarkdownFiles = jest.fn(() => [new TFile('JavaScript')])
@@ -170,7 +180,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'I love javascript programming'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe('I love [[JavaScript]] programming')
     })
@@ -187,7 +197,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'Python with Django and FastAPI is powerful'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe(
         '[[Python]] with [[Django]] and [[FastAPI]] is powerful'
@@ -205,7 +215,7 @@ describe('SmartLinkPlugin Integration Tests', () => {
       const content = 'UnresolvedNote and ResolvedNote are interesting'
       editor = new Editor(content, { line: 0, ch: 0 })
 
-      plugin['createAllSmartLinks'](editor)
+      plugin['createAllSmartLinks'](editor as unknown as ObsidianEditor)
 
       expect(editor.getLineContent(0)).toBe(
         '[[UnresolvedNote]] and [[ResolvedNote]] are interesting'
