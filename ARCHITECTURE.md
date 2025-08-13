@@ -1,7 +1,7 @@
 # Smart Link Core Architecture
 
 ## Overview
-SmartLinkCore is a text processing system that automatically creates wiki-style links (`[[filename]]`) by matching text against a list of available files. It supports multiple languages including Korean with special handling for grammatical particles.
+SmartLinkCore is a text processing system that automatically creates wiki-style links (`[[filename]]`) by matching text against a list of available files. It provides universal language support through Unicode property detection, handling grammatical suffixes and particles across all languages without language-specific hardcoding.
 
 ## Core Components
 
@@ -16,9 +16,6 @@ ProcessedRegion      // Replacement region tracking
 ### 2. Constants Structure
 - **MIN_PREFIX_LENGTH**: Minimum 3 characters for meaningful matches
 - **MAX_SUFFIX_LENGTH**: Maximum 3 characters for suffix preservation
-- **KOREAN**: Patterns for Korean particles and characters
-  - PARTICLES: Regex for Korean grammatical particles (을/를, 이/가, etc.)
-  - CHARACTERS: Regex for Korean character detection
 
 ## Main Processing Flow
 
@@ -40,7 +37,7 @@ The primary method used to process all potential links in a line of text.
 
 3. Link Generation
    ├── Create appropriate link format
-   ├── Handle Korean particles
+   ├── Handle grammatical suffixes
    └── Calculate replacement boundaries
 
 4. Replacement Application
@@ -61,17 +58,18 @@ The primary method used to process all potential links in a line of text.
 - Earlier position in text is preferred when length is equal
 - Case sensitivity is configurable
 
-## Special Language Handling
+## Universal Language Handling
 
-### Korean Language Support
-1. **Particle Detection**: Identifies Korean grammatical particles (을/를, 이/가, etc.)
-2. **Particle Preservation**: Keeps particles with the link
-3. **Word Boundary Validation**: Special rules for Korean character sequences
+### Unicode-Based Language Support
+1. **Universal Character Detection**: Uses Unicode property escapes (`\p{L}`, `\p{N}`) to detect letters and numbers in any language
+2. **Dynamic Suffix Detection**: Identifies grammatical suffixes without language-specific patterns
+3. **Word Boundary Validation**: Language-agnostic boundary detection using Unicode properties
 
-### Universal Suffix Handling
-1. **Short Suffixes**: Preserves suffixes up to 3 characters
-2. **Space + Word**: Handles patterns like " was", " is"
-3. **Agglutinative Support**: Works with suffix-based languages
+### Suffix Handling
+1. **Non-ASCII Suffixes**: Automatically preserves non-ASCII suffixes (e.g., Korean particles, Japanese particles)
+2. **Short Suffixes**: Preserves suffixes up to 3 characters
+3. **Space + Word**: Handles patterns like " was", " is"
+4. **Agglutinative Support**: Natural support for suffix-based languages without hardcoding
 
 ## File Filtering System
 
@@ -115,8 +113,7 @@ The primary method used to process all potential links in a line of text.
 ### Text Processing
 - `normalizeCase()`: Handle case sensitivity setting
 - `normalizeTextForFuzzy()`: Remove spaces, hyphens for fuzzy matching
-- `extractSuffix()`: Extract grammatical suffixes
-- `extractKoreanParticles()`: Extract Korean particles
+- `extractSuffix()`: Extract grammatical suffixes universally
 
 ### Matching
 - `findBestMatch()`: Find best matching file for given text
@@ -147,11 +144,10 @@ The primary method used to process all potential links in a line of text.
 ### Customizable Components
 1. **Settings**: Case sensitivity, exclusion patterns
 2. **Constants**: Minimum prefix length, suffix length
-3. **Patterns**: Regex patterns for different languages
 
 ### Future Enhancements
 1. **Caching**: Cache normalized filenames for repeated operations
 2. **Async Processing**: Process large texts in chunks
 3. **Custom Matchers**: Plugin system for specialized matching
 4. **ML Scoring**: Machine learning-based relevance scoring
-5. **Multi-language**: Extended support for more languages with particles
+5. **Language Plugins**: Optional language-specific enhancements through plugins

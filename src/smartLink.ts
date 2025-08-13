@@ -29,12 +29,6 @@ const CONSTANTS = {
   MIN_PREFIX_LENGTH: 3,
   // Maximum length for grammatical suffixes
   MAX_SUFFIX_LENGTH: 3,
-  // Korean language patterns
-  KOREAN: {
-    PARTICLES:
-      /^([을를이가은는에서의으로와과도만까지부터에게한테께서보다처럼같이]+)(?=\s|$|[.,!?])/,
-    CHARACTERS: /[가-힣]/,
-  },
 } as const
 
 export class SmartLinkCore {
@@ -433,17 +427,12 @@ export class SmartLinkCore {
 
     // For prefix matches
     let linkText = `[[${match.file.basename}]]`
-    const koreanSuffix = this.extractKoreanParticles(line.substring(match.end))
-    if (koreanSuffix) {
-      linkText += koreanSuffix
+    const suffix = this.extractSuffix(line.substring(match.end))
+    if (suffix) {
+      linkText += suffix
     }
 
     return linkText
-  }
-
-  private extractKoreanParticles(text: string): string {
-    const match = text.match(CONSTANTS.KOREAN.PARTICLES)
-    return match ? match[1] : ''
   }
 
   private calculateReplaceEnd(match: MatchResult, linkText: string): number {
@@ -491,22 +480,23 @@ export class SmartLinkCore {
     // Check character before
     if (start > 0) {
       const charBefore = line[start - 1]
-      if (/[a-zA-Z0-9\uAC00-\uD7AF]/.test(charBefore)) {
+      // Use Unicode property escapes to check for any letter or digit
+      if (/[\p{L}\p{N}]/u.test(charBefore)) {
         return false
       }
     }
 
     // Check character after
     if (end < line.length) {
-      const afterText = line.substring(end)
-
-      // Check for Korean particles
-      if (CONSTANTS.KOREAN.PARTICLES.test(afterText)) {
-        return true
-      }
-
       const charAfter = line[end]
-      if (/[a-zA-Z0-9\uAC00-\uD7AF]/.test(charAfter)) {
+      // Use Unicode property escapes to check for any letter or digit
+      if (/[\p{L}\p{N}]/u.test(charAfter)) {
+        // Special case: allow non-Latin suffixes (like Korean particles)
+        const afterText = line.substring(end)
+        const nonLatinSuffix = /^[^\p{ASCII}]{1,3}(?=\s|$|[.,!?])/u
+        if (nonLatinSuffix.test(afterText)) {
+          return true
+        }
         return false
       }
     }
