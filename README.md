@@ -21,12 +21,12 @@ The plugin uses an advanced matching algorithm that:
 
 ### 🌐 Universal Language Support
 
-Specially designed for agglutinative languages but works perfectly with any language:
+Designed to work perfectly with any language, including agglutinative languages:
 
-- **Korean**: Handles particles like 이/가, 을/를, 에서, 으로
-- **Japanese**: Supports particles and grammatical elements
-- **Turkish**: Handles complex suffix systems
-- **English**: Standard word boundary detection
+- **Universal Unicode support**: Works with all languages through Unicode property detection
+- **Agglutinative languages**: Automatically handles grammatical suffixes and particles
+- **Korean, Japanese, Turkish**: Natural support for complex grammatical structures
+- **English and European languages**: Standard word boundary detection
 - **Mixed languages**: Seamlessly handles multilingual content
 
 ## Commands
@@ -151,8 +151,8 @@ Same functionality as "Create Smart Link" - processes the entire line and create
 
 ### ⚙️ Smart Text Processing
 
-- **Word boundary detection**: Respects punctuation and spacing
-- **Particle separation**: Keeps Korean/Japanese particles outside links
+- **Word boundary detection**: Respects punctuation and spacing using Unicode properties
+- **Suffix preservation**: Intelligently preserves grammatical suffixes (particles, case markers, etc.)
 - **Multi-word matching**: Handles phrases like "Visual Studio Code"
 
 ### 🚀 Performance Optimized
@@ -280,10 +280,12 @@ If you find this plugin helpful, consider:
 
 ### Latest Version
 
+- ✨ **NEW**: Universal language support through Unicode property detection
 - ✨ **NEW**: Enhanced prefix matching algorithm - intelligently matches partial text with note titles
 - ✨ **NEW**: Both commands now process entire lines automatically
 - ✨ **NEW**: Regular expression support for exclude notes patterns
 - ✨ **NEW**: Exclude directories and notes settings with UI management
+- 🔄 **CHANGED**: Removed language-specific hardcoding - now uses Unicode properties for all languages
 - 🔄 **CHANGED**: Unified behavior - all commands now create all possible links in a line
 - 🔄 **CHANGED**: Removed separate single link creation - all operations are now batch
 - 🐛 **FIXED**: Improved matching priority - longer prefixes now correctly take precedence
