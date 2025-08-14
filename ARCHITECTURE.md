@@ -54,9 +54,33 @@ The primary method used to process all potential links in a line of text.
 4. **Fuzzy Match**: After normalization (remove spaces, hyphens, underscores)
 
 ### Match Selection
-- Longer matches are preferred over shorter ones
+- Longer matches are preferred over shorter ones when the input closely matches the note name
 - Earlier position in text is preferred when length is equal
 - Case sensitivity is configurable
+- **Gap threshold**: Matches are rejected if the gap between input and matched note is too large (see Gap Detection below)
+
+### Gap Detection
+When matching user input to note names, the system evaluates the "semantic gap" between them to prevent unintended matches:
+
+1. **Problem Cases**:
+   - Input: "new york" → Should NOT match "New York Times Company Report 2023"
+   - Input: "book review" → Should NOT match "book_review_template_draft"
+   
+2. **Acceptable Cases**:
+   - Input: "2022 World Cup" → Should match "2022 World Cup" (not "2022" or "World Cup" separately)
+   - Input: "2022" → Should match "2022" (not "2022 World Cup")
+   - Input: "meeting notes" → Should match "meeting_notes" (fuzzy match with underscore)
+
+3. **Gap Evaluation Criteria**:
+   - **Token-based matching**: Consider the proportion of matched tokens vs total tokens
+   - **Character coverage**: Evaluate what percentage of the note name is covered by the input
+   - **Context preservation**: Ensure the matched portion maintains semantic meaning
+   
+4. **Implementation Strategy**:
+   - Calculate match score based on token overlap and character coverage
+   - Reject matches where input covers less than a threshold percentage of the note name
+   - Prefer exact matches over partial matches with large gaps
+   - When multiple notes match, select the one with the smallest semantic gap
 
 ## Universal Language Handling
 
