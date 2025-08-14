@@ -249,6 +249,93 @@ describe('SmartLinkCore Unit Tests', () => {
     })
   })
 
+  describe('Gap Detection - Large semantic gaps between input and matched notes', () => {
+    test('Should NOT match "New York Times Company Report 2023" for input "new york"', () => {
+      files = [{ basename: 'New York Times Company Report 2023' }]
+      const line = 'visiting new york next week'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should NOT create a link because the semantic gap is too large
+      expect(result).toBe('visiting new york next week')
+    })
+
+    test('Should NOT match "book_review_template_draft" for input "book review"', () => {
+      files = [{ basename: 'book_review_template_draft' }]
+      const line = 'writing a book review today'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should NOT create a link because the semantic gap is too large
+      expect(result).toBe('writing a book review today')
+    })
+
+    test('Should match "2022 World Cup" when full phrase is input', () => {
+      files = [
+        { basename: '2022' },
+        { basename: 'World Cup' },
+        { basename: '2022 World Cup' },
+        { basename: 'World' },
+      ]
+      const line = 'The 2022 World Cup was exciting'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should prefer the exact full match
+      expect(result).toBe('The [[2022 World Cup]] was exciting')
+    })
+
+    test('Should match "2022" when only "2022" is input (not "2022 World Cup")', () => {
+      files = [{ basename: '2022' }, { basename: '2022 World Cup' }]
+      const line = '2022 was a great year'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should match only "2022", not the longer "2022 World Cup"
+      expect(result).toBe('[[2022]] was a great year')
+    })
+
+    test('Should match "york" for input "new-york" if exact "york" note exists', () => {
+      files = [{ basename: 'york' }, { basename: 'New York Times Company Report 2023' }]
+      const line = 'new-york trip'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should match "york" which is a reasonable semantic match
+      expect(result).toBe('new-[[york]] trip')
+    })
+
+    test('Should match "book" for input "book review" if "book" note exists', () => {
+      files = [{ basename: 'book' }, { basename: 'book_review_template_draft' }]
+      const line = 'book review article'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should match "book" which is a reasonable semantic match
+      expect(result).toBe('[[book]] review article')
+    })
+
+    test('Should handle compound words with hyphens appropriately', () => {
+      files = [{ basename: 'new-york' }, { basename: 'New York Times Company Report 2023' }]
+      const line = 'new-york trip'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should match the exact "new-york" note
+      expect(result).toBe('[[new-york]] trip')
+    })
+
+    test('Should handle underscores in note names appropriately', () => {
+      files = [{ basename: 'meeting_notes' }, { basename: 'meeting_notes_template_2023' }]
+      const line = 'meeting notes summary'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      // Should match "meeting_notes" through fuzzy matching (underscore normalization)
+      expect(result).toBe('[[meeting_notes]] summary')
+    })
+  })
+
   describe('Filtering functionality', () => {
     describe('excludeNotes filtering', () => {
       test('Should exclude notes by basename', () => {

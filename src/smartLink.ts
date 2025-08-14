@@ -29,6 +29,8 @@ const CONSTANTS = {
   MIN_PREFIX_LENGTH: 3,
   // Maximum length for grammatical suffixes
   MAX_SUFFIX_LENGTH: 3,
+  // Minimum coverage ratio for accepting a match with large gap
+  MIN_COVERAGE_RATIO: 0.5,
 } as const
 
 export class SmartLinkCore {
@@ -100,6 +102,7 @@ export class SmartLinkCore {
       // Check exact substring match
       const exactMatch = this.findExactMatch(searchText, compareFileName)
       if (exactMatch && this.isBetterMatch(exactMatch, bestMatchLength, bestMatchPosition)) {
+        // Exact matches are always acceptable
         bestMatch = fileName
         bestMatchLength = exactMatch.length
         bestMatchPosition = exactMatch.position
@@ -109,16 +112,26 @@ export class SmartLinkCore {
       // Check prefix match
       const prefixMatch = this.findPrefixMatch(searchText, compareFileName)
       if (prefixMatch && this.isBetterMatch(prefixMatch, bestMatchLength, bestMatchPosition)) {
-        bestMatch = fileName
-        bestMatchLength = prefixMatch.length
-        bestMatchPosition = prefixMatch.position
+        // Check for semantic gap for prefix matches
+        const matchedPart = searchText.substring(
+          prefixMatch.position,
+          prefixMatch.position + prefixMatch.length
+        )
+        if (this.isAcceptableMatch(matchedPart, fileName, text, 0)) {
+          bestMatch = fileName
+          bestMatchLength = prefixMatch.length
+          bestMatchPosition = prefixMatch.position
+        }
         continue
       }
 
       // Check fuzzy match
       if (!this.settings.caseSensitive && this.fuzzyMatch(compareFileName, searchText)) {
         const matchLength = Math.min(compareFileName.length, searchText.length)
-        if (matchLength > bestMatchLength) {
+        if (
+          matchLength > bestMatchLength &&
+          this.isAcceptableMatch(searchText, fileName, text, 0)
+        ) {
           bestMatch = fileName
           bestMatchLength = matchLength
           bestMatchPosition = 0
@@ -270,16 +283,19 @@ export class SmartLinkCore {
   private extractSuffix(text: string): string {
     if (!text.length) return ''
 
-    // Check for space + short word pattern
-    const spaceAndWordMatch = text.match(/^(\s+\w{1,3})(?=\s|$)/)
-    if (spaceAndWordMatch) {
-      return spaceAndWordMatch[1]
+    // Only extract non-ASCII suffixes (like Korean particles) or very short English suffixes
+    // Do NOT extract regular English words that follow
+
+    // Check for non-ASCII suffix (e.g., Korean particles)
+    const nonASCIIMatch = text.match(/^([^\p{ASCII}]{1,3})(?=\s|$|[.,!?])/u)
+    if (nonASCIIMatch) {
+      return nonASCIIMatch[1]
     }
 
-    // Check for short suffix without space
-    const shortSuffixMatch = text.match(/^([^\s]{1,3})(?=\s|$)/)
-    if (shortSuffixMatch) {
-      return shortSuffixMatch[1]
+    // Check for very short English suffixes like "'s", "'d", etc.
+    const englishSuffixMatch = text.match(/^('s|'d|'ll|'ve|'re|'m|'t|s)(?=\s|$|[.,!?])/)
+    if (englishSuffixMatch) {
+      return englishSuffixMatch[1]
     }
 
     return ''
@@ -293,6 +309,9 @@ export class SmartLinkCore {
     for (let pos = 0; pos < searchText.length; pos++) {
       if (this.isPositionProcessed(pos, processedRegions)) continue
       if (this.isInsideWikiLink(line, pos)) continue
+
+      // Skip whitespace - we don't want to start matching from a space
+      if (/\s/.test(line[pos])) continue
 
       const bestMatch = this.findBestMatchAtPosition(line, pos, sortedFiles, searchText)
       if (!bestMatch) continue
@@ -324,7 +343,11 @@ export class SmartLinkCore {
   ): MatchResult | null {
     let bestMatch: MatchResult | null = null
 
-    for (const file of files) {
+    // Sort files by length descending to prefer longer matches
+    const sortedFiles = [...files].sort((a, b) => b.basename.length - a.basename.length)
+
+    // First pass: look for exact matches only
+    for (const file of sortedFiles) {
       const fileName = file.basename
       const compareFileName = this.normalizeCase(fileName)
 
@@ -339,9 +362,17 @@ export class SmartLinkCore {
       if (exactMatch && (!bestMatch || exactMatch.matchLength > bestMatch.matchLength)) {
         bestMatch = exactMatch
       }
+    }
 
-      // Check prefix match if no exact match for this file
-      if (bestMatch?.file === file && bestMatch.matchType === 'exact') continue
+    // If we found an exact match, use it
+    if (bestMatch && bestMatch.matchType === 'exact') {
+      return bestMatch
+    }
+
+    // Second pass: check for prefix matches and fuzzy matches
+    for (const file of sortedFiles) {
+      const fileName = file.basename
+      const compareFileName = this.normalizeCase(fileName)
 
       const prefixMatch = this.checkPrefixMatchAtPosition(
         line,
@@ -350,12 +381,15 @@ export class SmartLinkCore {
         searchText,
         compareFileName
       )
-      if (
-        prefixMatch &&
-        (!bestMatch ||
-          (bestMatch.matchType === 'prefix' && prefixMatch.matchLength > bestMatch.matchLength))
-      ) {
+      if (prefixMatch && (!bestMatch || prefixMatch.matchLength > bestMatch.matchLength)) {
         bestMatch = prefixMatch
+      }
+
+      // Check fuzzy match at this position
+      const remainingText = line.substring(pos)
+      const fuzzyMatch = this.checkFuzzyMatchAtPosition(line, pos, file, remainingText)
+      if (fuzzyMatch && (!bestMatch || fuzzyMatch.matchLength > bestMatch.matchLength)) {
+        bestMatch = fuzzyMatch
       }
     }
 
@@ -374,10 +408,23 @@ export class SmartLinkCore {
     }
 
     const matchEnd = pos + compareFileName.length
+
+    // Special check for date patterns: If the file is "2025-08" and text is "2025-08-10"
+    // we should NOT match "2025-08" because the complete word is "2025-08-10"
+    if (matchEnd < line.length) {
+      const nextChar = line[matchEnd]
+      // If the next character continues the word (especially with hyphen), this is not a valid match
+      if (nextChar === '-' && file.basename.includes('-')) {
+        // This is likely a date pattern where we shouldn't match partial dates
+        return null
+      }
+    }
+
     if (!this.isValidWordMatch(line, pos, matchEnd)) {
       return null
     }
 
+    // Check for semantic gap - exact matches are always acceptable
     return {
       file,
       start: pos,
@@ -396,6 +443,64 @@ export class SmartLinkCore {
   ): MatchResult | null {
     const remainingText = searchText.substring(pos)
 
+    // Special handling for complete words/tokens (including hyphens and underscores)
+    // Find the complete word boundary
+    let wordEnd = pos
+    for (let i = pos; i < line.length; i++) {
+      const char = line[i]
+      // Include letters, numbers, hyphens, and underscores as part of the word
+      if (/[\p{L}\p{N}_-]/u.test(char)) {
+        wordEnd = i + 1
+      } else {
+        break
+      }
+    }
+
+    const wordText = line.substring(pos, wordEnd)
+    const normalizedWord = this.normalizeCase(wordText)
+
+    // For complete word matching:
+    // 1. If file name exactly matches the word, it's a match
+    // 2. If file name starts with word + hyphen, it's a match (e.g., "2025-08-10" -> "2025-08-10-Sun")
+    // 3. If word starts with file name + hyphen, skip it (e.g., "2025-08-10" should not match "2025-08")
+
+    if (compareFileName === normalizedWord) {
+      // Exact match of the complete word
+      if (this.isAcceptableMatch(wordText, file.basename, line, pos)) {
+        return {
+          file,
+          start: pos,
+          end: wordEnd,
+          matchType: 'prefix',
+          matchLength: wordText.length,
+        }
+      }
+    } else if (compareFileName.startsWith(normalizedWord + '-')) {
+      // File name continues after this word with a hyphen (e.g., "2025-08-10" matching "2025-08-10-Sun")
+      if (this.isAcceptableMatch(wordText, file.basename, line, pos)) {
+        return {
+          file,
+          start: pos,
+          end: wordEnd,
+          matchType: 'prefix',
+          matchLength: wordText.length,
+        }
+      }
+    } else if (normalizedWord.startsWith(compareFileName + '-')) {
+      // The word in text continues after the file name with a hyphen
+      // e.g., text "2025-08-10" should NOT match file "2025-08"
+      // Skip this file entirely
+      return null
+    }
+
+    // Standard prefix matching - but only if we're not in the middle of a word
+    // Don't do partial matching if we have a complete word that doesn't match
+    const hasCompleteWord = wordEnd > pos && wordText.length >= CONSTANTS.MIN_PREFIX_LENGTH
+    if (hasCompleteWord && !compareFileName.startsWith(normalizedWord)) {
+      // We have a complete word that doesn't match this file, skip standard matching
+      return null
+    }
+
     for (
       let len = Math.min(compareFileName.length, remainingText.length);
       len >= CONSTANTS.MIN_PREFIX_LENGTH;
@@ -405,12 +510,83 @@ export class SmartLinkCore {
       const filePart = compareFileName.substring(0, len)
 
       if (textPart === filePart && this.isValidWordMatch(line, pos, pos + len)) {
+        // Check for semantic gap
+        if (!this.isAcceptableMatch(textPart, file.basename, line, pos)) {
+          continue
+        }
+
         return {
           file,
           start: pos,
           end: pos + len,
           matchType: 'prefix',
           matchLength: len,
+        }
+      }
+    }
+
+    return null
+  }
+
+  private checkFuzzyMatchAtPosition(
+    line: string,
+    pos: number,
+    file: FileInfo,
+    remainingText: string
+  ): MatchResult | null {
+    // Skip fuzzy matching for case-sensitive mode
+    if (this.settings.caseSensitive) {
+      return null
+    }
+
+    const normalizedFileName = this.normalizeTextForFuzzy(file.basename)
+
+    // Try different word combinations to find the best fuzzy match
+    const words = remainingText.split(/[\s\-_]+/)
+
+    // For "product detail" matching "product_detail", we want to consume both words
+    for (let wordCount = 1; wordCount <= Math.min(words.length, 5); wordCount++) {
+      const testWords = words.slice(0, wordCount)
+      const testText = testWords.join(' ')
+      const normalizedTest = this.normalizeTextForFuzzy(testText)
+
+      if (normalizedTest === normalizedFileName) {
+        // Found exact fuzzy match
+        const matchEnd = pos + testText.length
+        if (this.isValidWordMatch(line, pos, matchEnd)) {
+          // Check for semantic gap
+          if (!this.isAcceptableMatch(testText, file.basename, line, pos)) {
+            return null
+          }
+          return {
+            file,
+            start: pos,
+            end: matchEnd,
+            matchType: 'prefix',
+            matchLength: testText.length,
+          }
+        }
+      }
+    }
+
+    // Check prefix match
+    const firstWord = words[0]
+    if (firstWord && firstWord.length >= CONSTANTS.MIN_PREFIX_LENGTH) {
+      const normalizedFirst = this.normalizeTextForFuzzy(firstWord)
+      if (normalizedFileName.startsWith(normalizedFirst)) {
+        const matchEnd = pos + firstWord.length
+        if (this.isValidWordMatch(line, pos, matchEnd)) {
+          // Check for semantic gap
+          if (!this.isAcceptableMatch(firstWord, file.basename, line, pos)) {
+            return null
+          }
+          return {
+            file,
+            start: pos,
+            end: matchEnd,
+            matchType: 'prefix',
+            matchLength: firstWord.length,
+          }
         }
       }
     }
@@ -427,25 +603,25 @@ export class SmartLinkCore {
 
     // For prefix matches
     let linkText = `[[${match.file.basename}]]`
-    const suffix = this.extractSuffix(line.substring(match.end))
-    if (suffix) {
-      linkText += suffix
+
+    // Extract suffix but only if it's a grammatical suffix, not punctuation
+    const afterText = line.substring(match.end)
+    if (afterText.length > 0) {
+      // Check if next character is punctuation or space - if so, don't extract suffix
+      const firstChar = afterText[0]
+      if (!/[\s\p{P}]/u.test(firstChar)) {
+        const suffix = this.extractSuffix(afterText)
+        if (suffix) {
+          linkText += suffix
+        }
+      }
     }
 
     return linkText
   }
 
-  private calculateReplaceEnd(match: MatchResult, linkText: string): number {
-    if (match.matchType !== 'exact') {
-      return match.end
-    }
-
-    const baseLinkLength = `[[${match.file.basename}]]`.length
-    if (linkText.length > baseLinkLength) {
-      const suffixLength = linkText.length - baseLinkLength
-      return match.end + suffixLength
-    }
-
+  private calculateReplaceEnd(match: MatchResult, _linkText: string): number {
+    // For prefix matches, we've already calculated the correct end position
     return match.end
   }
 
@@ -481,6 +657,7 @@ export class SmartLinkCore {
     if (start > 0) {
       const charBefore = line[start - 1]
       // Use Unicode property escapes to check for any letter or digit
+      // But allow punctuation and whitespace before
       if (/[\p{L}\p{N}]/u.test(charBefore)) {
         return false
       }
@@ -489,7 +666,7 @@ export class SmartLinkCore {
     // Check character after
     if (end < line.length) {
       const charAfter = line[end]
-      // Use Unicode property escapes to check for any letter or digit
+      // Check if next character is a letter or digit
       if (/[\p{L}\p{N}]/u.test(charAfter)) {
         // Special case: allow non-Latin suffixes (like Korean particles)
         const afterText = line.substring(end)
@@ -502,5 +679,157 @@ export class SmartLinkCore {
     }
 
     return true
+  }
+
+  private isAcceptableMatch(
+    matchedText: string,
+    noteName: string,
+    line: string,
+    position: number
+  ): boolean {
+    const normalizedMatch = this.normalizeCase(matchedText)
+    const normalizedNote = this.normalizeCase(noteName)
+
+    // If the matched text exactly equals the note name, it's always acceptable
+    if (normalizedMatch === normalizedNote) {
+      return true
+    }
+
+    // For fuzzy matching, normalize both strings
+    const fuzzyMatch = this.normalizeTextForFuzzy(matchedText)
+    const fuzzyNote = this.normalizeTextForFuzzy(noteName)
+
+    // If fuzzy normalized versions match completely, it's acceptable
+    if (fuzzyMatch === fuzzyNote) {
+      return true
+    }
+
+    // Get the word context around the match
+    const wordContext = this.getWordContext(line, position, position + matchedText.length)
+    const contextTokens = this.tokenize(wordContext)
+    const noteTokens = this.tokenize(normalizedNote)
+    const matchTokens = this.tokenize(normalizedMatch)
+
+    // Special check for "product detail" vs "product_variation_details"
+    // The input has 2 tokens, the note has 3 tokens
+    // If the note has significantly more tokens than the input, be strict
+    if (noteTokens.length > matchTokens.length * 1.5) {
+      // Check if all match tokens are present in note tokens
+      const allTokensPresent = matchTokens.every((token) =>
+        noteTokens.some((noteToken) => noteToken === token)
+      )
+
+      // Even if all tokens are present, reject if the note has too many extra tokens
+      if (!allTokensPresent || noteTokens.length - matchTokens.length > 1) {
+        return false
+      }
+    }
+
+    // Special case: if the input text is part of a compound word (like "add-to-cart")
+    // and the note name contains unrelated content (like "Cart db recovery incident")
+    // we should reject the match
+    if (contextTokens.length > matchTokens.length) {
+      // The match is part of a larger compound word
+      // Check if the note name makes sense in this context
+
+      // Calculate how much of the note is covered by the context
+      const noteCoverage = this.calculateTokenOverlap(noteTokens, contextTokens)
+
+      // If the note contains many tokens not present in the context, it's likely a bad match
+      if (noteCoverage < 0.3 && noteTokens.length > contextTokens.length * 2) {
+        return false
+      }
+    }
+
+    // Check if the matched text forms complete tokens from the note name
+    if (this.hasCompleteTokenMatch(matchTokens, noteTokens)) {
+      // But still check the gap
+      const coverageRatio = matchedText.length / noteName.length
+      if (
+        coverageRatio < CONSTANTS.MIN_COVERAGE_RATIO &&
+        noteTokens.length > matchTokens.length + 1
+      ) {
+        return false
+      }
+      return true
+    }
+
+    // Calculate coverage ratio
+    const coverageRatio = matchedText.length / noteName.length
+
+    // For partial matches with low coverage, be more strict
+    if (coverageRatio < CONSTANTS.MIN_COVERAGE_RATIO) {
+      // Only accept if there's strong semantic similarity
+      const semanticScore = this.calculateSemanticSimilarity(matchTokens, noteTokens)
+      if (semanticScore < 0.5) {
+        return false
+      }
+    }
+
+    return true
+  }
+
+  private tokenize(text: string): string[] {
+    // Split by spaces, hyphens, underscores, and camelCase boundaries
+    return text
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .split(/[\s\-_]+/)
+      .filter((token) => token.length > 0)
+      .map((token) => token.toLowerCase())
+  }
+
+  private hasCompleteTokenMatch(matchTokens: string[], noteTokens: string[]): boolean {
+    // Check if all match tokens are complete tokens in the note
+    return matchTokens.every((matchToken) =>
+      noteTokens.some((noteToken) => noteToken === matchToken)
+    )
+  }
+
+  private getWordContext(line: string, start: number, end: number): string {
+    // Expand to get the full word context
+    let wordStart = start
+    let wordEnd = end
+
+    // Expand backwards to word boundary
+    while (wordStart > 0 && /[\p{L}\p{N}\-_]/u.test(line[wordStart - 1])) {
+      wordStart--
+    }
+
+    // Expand forwards to word boundary
+    while (wordEnd < line.length && /[\p{L}\p{N}\-_]/u.test(line[wordEnd])) {
+      wordEnd++
+    }
+
+    return line.substring(wordStart, wordEnd)
+  }
+
+  private calculateTokenOverlap(tokens1: string[], tokens2: string[]): number {
+    if (tokens1.length === 0 || tokens2.length === 0) return 0
+
+    const commonTokens = tokens1.filter((token) =>
+      tokens2.some((otherToken) => otherToken === token)
+    )
+
+    return commonTokens.length / tokens1.length
+  }
+
+  private calculateSemanticSimilarity(matchTokens: string[], noteTokens: string[]): number {
+    if (matchTokens.length === 0 || noteTokens.length === 0) return 0
+
+    // Count exact matches
+    const exactMatches = matchTokens.filter((token) =>
+      noteTokens.some((noteToken) => noteToken === token)
+    ).length
+
+    // Count partial matches (one token contains another)
+    const partialMatches = matchTokens.filter((token) =>
+      noteTokens.some(
+        (noteToken) =>
+          (noteToken.includes(token) || token.includes(noteToken)) && noteToken !== token
+      )
+    ).length
+
+    const totalMatches = exactMatches + partialMatches * 0.5
+    return totalMatches / Math.max(matchTokens.length, noteTokens.length)
   }
 }
