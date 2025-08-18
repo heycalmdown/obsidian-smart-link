@@ -159,6 +159,51 @@ describe('ProcessAllSmartLinks Feature Tests', () => {
 
       expect(result).toContain('[[JavaScript]]')
     })
+
+    test('Should not link text within backticks', () => {
+      files = [{ basename: 'React' }, { basename: 'JavaScript' }]
+      const line = 'Use `React.createElement()` in JavaScript'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('Use `React.createElement()` in [[JavaScript]]')
+    })
+
+    test('Should handle multiple backtick sections', () => {
+      files = [{ basename: 'function' }, { basename: 'variable' }]
+      const line = 'The `function` keyword and `variable` declaration in JavaScript'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('The `function` keyword and `variable` declaration in JavaScript')
+    })
+
+    test('Should link text outside backticks but not inside', () => {
+      files = [{ basename: 'Python' }]
+      const line = 'Python is great. Use `python --version` to check Python version'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('[[Python]] is great. Use `python --version` to check [[Python]] version')
+    })
+
+    test('Korean: Should not link text within backticks', () => {
+      files = [{ basename: '함수' }, { basename: '변수' }]
+      const line = '`함수`와 변수를 선언한다'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('`함수`와 [[변수]]를 선언한다')
+    })
+
+    test('Should not link within existing wiki links', () => {
+      files = [{ basename: 'React' }]
+      const line = 'This [[React]] is already linked'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('This [[React]] is already linked')
+    })
   })
 
   describe('Performance scenarios', () => {

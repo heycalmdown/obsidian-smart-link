@@ -309,6 +309,7 @@ export class SmartLinkCore {
     for (let pos = 0; pos < searchText.length; pos++) {
       if (this.isPositionProcessed(pos, processedRegions)) continue
       if (this.isInsideWikiLink(line, pos)) continue
+      if (this.isInsideBackticks(line, pos)) continue
 
       // Skip whitespace - we don't want to start matching from a space
       if (/\s/.test(line[pos])) continue
@@ -650,6 +651,19 @@ export class SmartLinkCore {
 
     const linkEnd = line.indexOf(']]', linkStart)
     return linkEnd !== -1 && linkEnd >= position
+  }
+
+  private isInsideBackticks(line: string, position: number): boolean {
+    // Count backticks before the current position
+    let backtickCount = 0
+    for (let i = 0; i < position; i++) {
+      if (line[i] === '`') {
+        backtickCount++
+      }
+    }
+
+    // If odd number of backticks before position, we're inside backticks
+    return backtickCount % 2 === 1
   }
 
   private isValidWordMatch(line: string, start: number, end: number): boolean {
