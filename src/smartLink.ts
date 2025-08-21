@@ -347,7 +347,8 @@ export class SmartLinkCore {
     // Sort files by length descending to prefer longer matches
     const sortedFiles = [...files].sort((a, b) => b.basename.length - a.basename.length)
 
-    // First pass: look for exact matches only
+    // Look for the best match considering both exact and prefix matches
+    // We want to prefer longer matches even if they're only partial
     for (const file of sortedFiles) {
       const fileName = file.basename
       const compareFileName = this.normalizeCase(fileName)
@@ -360,21 +361,8 @@ export class SmartLinkCore {
         searchText,
         compareFileName
       )
-      if (exactMatch && (!bestMatch || exactMatch.matchLength > bestMatch.matchLength)) {
-        bestMatch = exactMatch
-      }
-    }
 
-    // If we found an exact match, use it
-    if (bestMatch && bestMatch.matchType === 'exact') {
-      return bestMatch
-    }
-
-    // Second pass: check for prefix matches and fuzzy matches
-    for (const file of sortedFiles) {
-      const fileName = file.basename
-      const compareFileName = this.normalizeCase(fileName)
-
+      // Check prefix match at position
       const prefixMatch = this.checkPrefixMatchAtPosition(
         line,
         pos,
@@ -382,19 +370,49 @@ export class SmartLinkCore {
         searchText,
         compareFileName
       )
-      if (prefixMatch && (!bestMatch || prefixMatch.matchLength > bestMatch.matchLength)) {
-        bestMatch = prefixMatch
-      }
 
       // Check fuzzy match at this position
       const remainingText = line.substring(pos)
       const fuzzyMatch = this.checkFuzzyMatchAtPosition(line, pos, file, remainingText)
-      if (fuzzyMatch && (!bestMatch || fuzzyMatch.matchLength > bestMatch.matchLength)) {
-        bestMatch = fuzzyMatch
+
+      // Choose the best match among exact, prefix, and fuzzy
+      const currentBestForFile = this.selectBestMatch(exactMatch, prefixMatch, fuzzyMatch)
+
+      if (
+        currentBestForFile &&
+        (!bestMatch || this.isBetterMatchResult(currentBestForFile, bestMatch))
+      ) {
+        bestMatch = currentBestForFile
       }
     }
 
     return bestMatch
+  }
+
+  private selectBestMatch(...matches: (MatchResult | null)[]): MatchResult | null {
+    let best: MatchResult | null = null
+    for (const match of matches) {
+      if (match && (!best || match.matchLength > best.matchLength)) {
+        best = match
+      }
+    }
+    return best
+  }
+
+  private isBetterMatchResult(candidate: MatchResult, current: MatchResult): boolean {
+    // Prefer longer matches
+    if (candidate.matchLength > current.matchLength) {
+      return true
+    }
+
+    // If same length, prefer exact matches over prefix matches
+    if (candidate.matchLength === current.matchLength) {
+      if (candidate.matchType === 'exact' && current.matchType !== 'exact') {
+        return true
+      }
+    }
+
+    return false
   }
 
   private checkExactMatchAtPosition(
@@ -409,17 +427,6 @@ export class SmartLinkCore {
     }
 
     const matchEnd = pos + compareFileName.length
-
-    // Special check for date patterns: If the file is "2025-08" and text is "2025-08-10"
-    // we should NOT match "2025-08" because the complete word is "2025-08-10"
-    if (matchEnd < line.length) {
-      const nextChar = line[matchEnd]
-      // If the next character continues the word (especially with hyphen), this is not a valid match
-      if (nextChar === '-' && file.basename.includes('-')) {
-        // This is likely a date pattern where we shouldn't match partial dates
-        return null
-      }
-    }
 
     if (!this.isValidWordMatch(line, pos, matchEnd)) {
       return null
@@ -442,86 +449,33 @@ export class SmartLinkCore {
     searchText: string,
     compareFileName: string
   ): MatchResult | null {
-    const remainingText = searchText.substring(pos)
+    // Try to match as much of the remaining line as possible
+    // This handles cases like "Lambda Throttl" matching "Lambda Throttling"
+    const remainingLine = line.substring(pos)
+    const normalizedRemaining = this.normalizeCase(remainingLine)
 
-    // Special handling for complete words/tokens (including hyphens and underscores)
-    // Find the complete word boundary
-    let wordEnd = pos
-    for (let i = pos; i < line.length; i++) {
-      const char = line[i]
-      // Include letters, numbers, hyphens, and underscores as part of the word
-      if (/[\p{L}\p{N}_-]/u.test(char)) {
-        wordEnd = i + 1
-      } else {
-        break
-      }
-    }
-
-    const wordText = line.substring(pos, wordEnd)
-    const normalizedWord = this.normalizeCase(wordText)
-
-    // For complete word matching:
-    // 1. If file name exactly matches the word, it's a match
-    // 2. If file name starts with word + hyphen, it's a match (e.g., "2025-08-10" -> "2025-08-10-Sun")
-    // 3. If word starts with file name + hyphen, skip it (e.g., "2025-08-10" should not match "2025-08")
-
-    if (compareFileName === normalizedWord) {
-      // Exact match of the complete word
-      if (this.isAcceptableMatch(wordText, file.basename, line, pos)) {
-        return {
-          file,
-          start: pos,
-          end: wordEnd,
-          matchType: 'prefix',
-          matchLength: wordText.length,
-        }
-      }
-    } else if (compareFileName.startsWith(normalizedWord + '-')) {
-      // File name continues after this word with a hyphen (e.g., "2025-08-10" matching "2025-08-10-Sun")
-      if (this.isAcceptableMatch(wordText, file.basename, line, pos)) {
-        return {
-          file,
-          start: pos,
-          end: wordEnd,
-          matchType: 'prefix',
-          matchLength: wordText.length,
-        }
-      }
-    } else if (normalizedWord.startsWith(compareFileName + '-')) {
-      // The word in text continues after the file name with a hyphen
-      // e.g., text "2025-08-10" should NOT match file "2025-08"
-      // Skip this file entirely
-      return null
-    }
-
-    // Standard prefix matching - but only if we're not in the middle of a word
-    // Don't do partial matching if we have a complete word that doesn't match
-    const hasCompleteWord = wordEnd > pos && wordText.length >= CONSTANTS.MIN_PREFIX_LENGTH
-    if (hasCompleteWord && !compareFileName.startsWith(normalizedWord)) {
-      // We have a complete word that doesn't match this file, skip standard matching
-      return null
-    }
-
+    // Check if the file name starts with any prefix of the remaining text
     for (
-      let len = Math.min(compareFileName.length, remainingText.length);
+      let len = Math.min(compareFileName.length, normalizedRemaining.length);
       len >= CONSTANTS.MIN_PREFIX_LENGTH;
       len--
     ) {
-      const textPart = remainingText.substring(0, len)
-      const filePart = compareFileName.substring(0, len)
+      const textPrefix = normalizedRemaining.substring(0, len)
 
-      if (textPart === filePart && this.isValidWordMatch(line, pos, pos + len)) {
-        // Check for semantic gap
-        if (!this.isAcceptableMatch(textPart, file.basename, line, pos)) {
-          continue
-        }
-
-        return {
-          file,
-          start: pos,
-          end: pos + len,
-          matchType: 'prefix',
-          matchLength: len,
+      if (compareFileName.startsWith(textPrefix)) {
+        // Check if this is a valid match point (word boundaries)
+        const matchEnd = pos + len
+        if (this.isValidWordMatch(line, pos, matchEnd)) {
+          // Check for semantic gap
+          if (this.isAcceptableMatch(line.substring(pos, matchEnd), file.basename, line, pos)) {
+            return {
+              file,
+              start: pos,
+              end: matchEnd,
+              matchType: 'prefix',
+              matchLength: len,
+            }
+          }
         }
       }
     }

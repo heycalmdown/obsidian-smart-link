@@ -249,6 +249,52 @@ describe('SmartLinkCore Unit Tests', () => {
     })
   })
 
+  describe('Partial word prefix matching', () => {
+    test('Should link "Lambda Throttl" to "[[Lambda Throttling]]" not "[[Lambda]] Throttl"', () => {
+      files = [{ basename: 'Lambda' }, { basename: 'Lambda Throttling' }]
+      const line = 'Lambda Throttl'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('[[Lambda Throttling]]')
+    })
+
+    test('Should handle multiple partial matches correctly', () => {
+      files = [
+        { basename: 'React' },
+        { basename: 'React Native' },
+        { basename: 'React Native Development' },
+      ]
+      const line = 'React Native Dev'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('[[React Native Development]]')
+    })
+
+    test('Should prefer longer match for incomplete words', () => {
+      files = [
+        { basename: 'JavaScript' },
+        { basename: 'JavaScript Engine' },
+        { basename: 'JavaScript Engine Optimization' },
+      ]
+      const line = 'JavaScript Engine Opt'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('[[JavaScript Engine Optimization]]')
+    })
+
+    test('Should handle partial word at end of longer note name', () => {
+      files = [{ basename: 'Cloud' }, { basename: 'Cloud Computing' }]
+      const line = 'Cloud Comp'
+
+      const result = smartLink.processAllSmartLinks(line, files)
+
+      expect(result).toBe('[[Cloud Computing]]')
+    })
+  })
+
   describe('Gap Detection - Large semantic gaps between input and matched notes', () => {
     test('Should NOT match "New York Times Company Report 2023" for input "new york"', () => {
       files = [{ basename: 'New York Times Company Report 2023' }]
